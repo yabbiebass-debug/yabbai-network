@@ -1,89 +1,104 @@
-from fastapi import FastAPI, APIRouter
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+"""
+YABBAI NETWORK V2 — Unified Backend (Emergent single-port edition)
+
+Every Python backend that used to run on its own port (revenue 7870, AI 7860,
+defi 8002, goldscout 8001, ops 7880) is folded into ONE FastAPI app on :8001,
+each under an /api/<name> prefix so the Emergent ingress can route it. The hub
+and all web surfaces are served by the frontend and talk to these paths.
+
+Safety spine (income = reconciled-only, HIGH-action approval queue, kill-switch,
+NoKeySigner) is the ORIGINAL revenue_system code, mounted unchanged.
+"""
+
 import os
-import logging
-from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
-import uuid
 from datetime import datetime, timezone
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv()
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# ── original backends, mounted as sub-apps ────────────────────────────────────
+from revenue_system.unified_server import app as revenue_app
+from defi_simulator.api.server import app as defi_app
+from yabbai_ops.server import app as ops_app
+from ai_router import router as ai_router
+from goldscout_router import router as goldscout_router
 
-# Create the main app without a prefix
-app = FastAPI()
+# health aliases so every service answers at <prefix>/health (the hub polls this)
+@defi_app.get("/health")
+async def _defi_health():
+    return {"ok": True, "app": "yabbai-defi-simulator", "custodial": False,
+            "real_funds": False, "ts": datetime.now(timezone.utc).isoformat()}
 
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
+@ops_app.get("/health")
+async def _ops_health():
+    return {"ok": True, "app": "yabbai-ops", "ts": datetime.now(timezone.utc).isoformat()}
 
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+# ── main gateway app ──────────────────────────────────────────────────────────
+app = FastAPI(title="YABBAI Network Gateway", version="2.0.0")
+app.add_middleware(CORSMiddleware, allow_origins=["*"],
+                   allow_methods=["*"], allow_headers=["*"])
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+# Mongo (settings / connections store)
+_mongo = AsyncIOMotorClient(os.environ["MONGO_URL"])
+db = _mongo[os.environ["DB_NAME"]]
 
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+@app.get("/api/health")
+async def health():
+    return {"gateway": "healthy", "version": "2.0.0",
+            "ts": datetime.now(timezone.utc).isoformat()}
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
 
-# Include the router in the main app
-app.include_router(api_router)
+@app.get("/api/network/status")
+async def network_status():
+    """In-process services are always up; report them for the hub strip."""
+    services = {
+        "revenue":   {"live": True, "prefix": "/api/revenue"},
+        "ai":        {"live": bool(os.environ.get("EMERGENT_LLM_KEY")), "prefix": "/api/ai"},
+        "goldscout": {"live": True, "prefix": "/api/goldscout"},
+        "defi":      {"live": True, "prefix": "/api/defi"},
+        "ops":       {"live": True, "prefix": "/api/ops"},
+    }
+    return {"gateway": "healthy", "version": "2.0.0",
+            "services": services, "all_live": all(s["live"] for s in services.values()),
+            "ts": datetime.now(timezone.utc).isoformat()}
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# ── connection settings (Google / Stripe / PayPal / Phantom — configured in UI) ─
+SETTINGS_DOC = "network_settings"
+PUBLIC_KEYS = {"google_client_id", "stripe_publishable_key", "paypal_client_id",
+               "phantom_enabled", "openrouter_enabled"}
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+
+@app.get("/api/settings")
+async def get_settings():
+    doc = await db.settings.find_one({"_id": SETTINGS_DOC}) or {}
+    out = {k: doc.get(k) for k in PUBLIC_KEYS}
+    out["secrets_set"] = {
+        "stripe_secret_key": bool(doc.get("stripe_secret_key")),
+        "paypal_secret": bool(doc.get("paypal_secret")),
+        "google_client_secret": bool(doc.get("google_client_secret")),
+        "tavily_api_key": bool(doc.get("tavily_api_key")),
+    }
+    return out
+
+
+@app.put("/api/settings")
+async def put_settings(payload: dict):
+    payload.pop("_id", None)
+    payload.pop("secrets_set", None)
+    await db.settings.update_one({"_id": SETTINGS_DOC}, {"$set": payload}, upsert=True)
+    return {"ok": True}
+
+
+# ── mount the original backends ───────────────────────────────────────────────
+app.mount("/api/revenue", revenue_app)
+app.mount("/api/defi", defi_app)
+app.mount("/api/ops", ops_app)
+app.include_router(ai_router)
+app.include_router(goldscout_router)

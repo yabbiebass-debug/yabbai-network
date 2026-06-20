@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI CATALOG STUDIO — ideate · audit · list (never sell air)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.6}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  input,textarea,select{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:9px 11px;border-radius:3px;font-size:12px;width:100%}
+  textarea{min-height:90px;resize:vertical}
+  .btn{padding:10px 16px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;transition:all .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .btn.green{border-color:var(--green);color:var(--green)}.btn.green:hover{background:var(--green);color:#021}
+  .btn.sm{padding:5px 10px;font-size:9px}
+  .btn[disabled]{opacity:.5;cursor:wait}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px 70px}
+  .nav{display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}.brand b{color:var(--purple)}
+  .brand small{display:block;font-weight:400;font-size:9px;color:var(--dim);letter-spacing:2px}
+  .prog{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+  .pc{text-align:right}.pc .v{font-family:var(--disp);font-size:17px}.pc .l{font-size:8.5px;letter-spacing:2px;color:var(--dim2);text-transform:uppercase}
+  .pc .v.g{color:var(--green)}.pc .v.a{color:var(--amber)}
+  .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:16px 0 6px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--purple),var(--green))}
+  .bartext{font-size:10px;color:var(--dim2)}
+  .tabs{display:flex;border-bottom:1px solid var(--line);flex-wrap:wrap;margin-top:8px}
+  .tab{padding:13px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);border-bottom:2px solid transparent}
+  .tab.on{color:var(--ink);border-bottom-color:var(--purple)}
+  .panel{display:none;padding:20px 0}.panel.on{display:block}
+  .box{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:18px;margin-bottom:14px}
+  .box h3{font-family:var(--disp);font-size:11px;letter-spacing:1.5px;margin-bottom:10px}
+  .hint{font-size:10px;color:var(--dim2);line-height:1.6}
+  .formrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.formrow>*{flex:1;min-width:120px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:8px;border-bottom:1px solid rgba(153,69,255,.07);font-size:11.5px;vertical-align:top}
+  .ff{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;border-radius:9px;border:1px solid}
+  .ff.deliverable_now{color:var(--green);border-color:var(--green)}
+  .ff.building{color:var(--amber);border-color:var(--amber)}
+  .ff.concept{color:var(--dim2);border-color:var(--dim2)}
+  .au{font-size:9px;letter-spacing:1px;text-transform:uppercase}
+  .au.passed{color:var(--green)}.au.flagged{color:var(--red)}.au.unaudited{color:var(--dim2)}
+  .effort{font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid}
+  .effort.have{color:var(--green);border-color:var(--green)} .effort.hours{color:var(--amber);border-color:var(--amber)} .effort.days{color:var(--purple);border-color:var(--purple)}
+  .empty{padding:28px;text-align:center;color:var(--dim2);font-size:11.5px;border:1px dashed var(--line);border-radius:3px}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:12px;font-size:10.5px;white-space:pre-wrap;color:var(--green);margin-top:8px}
+  .gatewrap{min-height:80vh;display:flex;align-items:center;justify-content:center}
+  .gate{border:1px solid var(--line);background:var(--panel);padding:34px;max-width:420px;width:100%;border-radius:4px}
+  .gate h1{font-family:var(--disp);font-size:15px;margin-bottom:8px}.gate h1 b{color:var(--purple)}
+  .gate p{font-size:11.5px;color:var(--dim);margin-bottom:14px}.gate input{margin-bottom:10px}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--panel);border:1px solid var(--green);color:var(--green);padding:11px 16px;font-size:11px;border-radius:3px;display:none;z-index:10}
+  .audit{font-size:11.5px;line-height:1.7}.audit .ok{color:var(--green)}.audit .issue{color:var(--red)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_URL='PASTE_YOUR_SUPABASE_URL', SUPABASE_ANON_KEY='PASTE_YOUR_ANON_KEY';
+const TARGET=50;
+const $=s=>document.querySelector(s);
+const AUD=n=>'$'+Number(n||0).toLocaleString('en-AU');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)};
+
+if(SUPABASE_URL.startsWith('PASTE')){document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate"><h1>YABBAI <b>//</b> CATALOG STUDIO</h1><p>Config needed: Supabase URL + anon key at the top of this file. See README_CATALOG.md.</p></div></div>`;throw new Error('config');}
+const supa=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+const S={specs:[],products:[],cat:{total:0,live:0,deliverable:0,building:0,concept:0,audited:0}};
+
+async function ensureAuth(){
+  const {data:{session}}=await supa.auth.getSession();
+  if(session)return session;
+  document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate"><h1>YABBAI <b>//</b> CATALOG STUDIO</h1><p>Director sign-in. Ideate products from your real skills, generate listings, audit them white-hat, and list only what you can deliver.</p><input id="em" type="email" placeholder="director@yabbai.network"><button class="btn" id="go" style="width:100%">Send magic link</button><p class="hint" id="msg" style="margin-top:8px"></p></div></div>`;
+  $('#go').onclick=async()=>{const e=$('#em').value.trim();if(!e)return;const {error}=await supa.auth.signInWithOtp({email:e,options:{emailRedirectTo:location.href}});$('#msg').textContent=error?error.message:'Link sent.';};
+  return new Promise(res=>supa.auth.onAuthStateChange((_e,s)=>{if(s)res(s)}));
+}
+
+async function load(){
+  const [{data:sp},{data:pr},{data:cat}]=await Promise.all([
+    supa.from('product_specs').select('*').neq('status','built').order('created_at',{ascending:false}),
+    supa.from('vault_products').select('*').order('sort'),
+    supa.from('catalog_view').select('*').single(),
+  ]);
+  S.specs=sp||[]; S.products=pr||[]; S.cat=cat||S.cat;
+  render();
+}
+
+function shell(){
+  document.getElementById('app').innerHTML=`
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">YABBAI <b>//</b> CATALOG STUDIO<small>IDEATE · AUDIT · LIST — NEVER SELL AIR</small></div>
+      <div class="prog">
+        <div class="pc"><div class="v g" id="pLive">0</div><div class="l">Live</div></div>
+        <div class="pc"><div class="v a" id="pDeliv">0</div><div class="l">Deliverable</div></div>
+        <div class="pc"><div class="v" id="pTotal">0</div><div class="l">In pipeline</div></div>
+      </div>
+    </nav>
+    <div class="bar"><i id="barFill" style="width:0%"></i></div>
+    <div class="bartext" id="barText"></div>
+    <div class="tabs">
+      <button class="tab on" data-t="ideate">1 · Ideate</button>
+      <button class="tab" data-t="specs">2 · Specs</button>
+      <button class="tab" data-t="products">3 · Products &amp; audit</button>
+    </div>
+    <div class="panel on" id="p-ideate"></div>
+    <div class="panel" id="p-specs"></div>
+    <div class="panel" id="p-products"></div>
+  </div>`;
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on'); $('#p-'+t.dataset.t).classList.add('on');
+  });
+}
+
+function render(){
+  $('#pLive').textContent=S.cat.live; $('#pDeliv').textContent=S.cat.deliverable; $('#pTotal').textContent=S.cat.total;
+  const pct=Math.min(100,Math.round((S.cat.live/TARGET)*100));
+  $('#barFill').style.width=pct+'%';
+  $('#barText').textContent=`${S.cat.live} live of ${TARGET} target · ${S.cat.deliverable} deliverable · ${S.cat.building} building · ${S.cat.concept} concept · ${S.cat.audited} audited. (Only deliverable + audited can go live.)`;
+
+  // ideate
+  $('#p-ideate').innerHTML=`
+    <div class="box"><h3>IDEATE FROM YOUR REAL SKILLS</h3>
+      <p class="hint" style="margin-bottom:10px">List what you can actually do and what you already have. The agent proposes 6-10 sellable products, each honestly tagged <b>have it / hours / days</b> so you build toward 50 with real things, not air.</p>
+      <textarea id="skills" placeholder="My skills: automation (Zapier, Make), full-stack (React, Supabase, Deno), AI integration, music production, basic Solana/DeFi, web design…"></textarea>
+      <textarea id="assets" placeholder="What I already have: the Agency OS, 7 Zap blueprints, 6 site templates, onboarding kit, stem pack, Mission Control UI, the diagnostic engine…" style="margin-top:8px"></textarea>
+      <button class="btn green" id="ideateBtn" style="margin-top:10px">Generate product ideas</button>
+    </div>
+    <div id="ideaOut"></div>`;
+  $('#ideateBtn').onclick=ideate;
+
+  // specs
+  $('#p-specs').innerHTML = S.specs.length ? `<table><thead><tr><th>Idea</th><th>Audience</th><th>Effort</th><th>Band</th><th></th></tr></thead><tbody>`+
+    S.specs.map(s=>{const e=s.build_effort==='have it'?'have':s.build_effort;return `<tr>
+      <td><b>${esc(s.title)}</b><br><span class="hint">${esc(s.pitch||'')}</span></td>
+      <td class="hint">${esc(s.audience||'—')}</td>
+      <td><span class="effort ${e}">${esc(s.build_effort)}</span></td>
+      <td class="hint">${AUD(s.price_band)}</td>
+      <td><button class="btn sm green" onclick="window.toProduct('${s.id}')">→ draft product</button>
+          <button class="btn sm" onclick="window.rejectSpec('${s.id}')" style="border-color:var(--dim2);color:var(--dim)">drop</button></td>
+    </tr>`;}).join('')+`</tbody></table>`
+    : `<div class="empty">No specs yet. Generate ideas in step 1 — approved ideas become draft products here.</div>`;
+
+  // products
+  $('#p-products').innerHTML=`
+    <div class="box"><h3>GENERATE A LISTING FROM A REAL ASSET</h3>
+      <p class="hint" style="margin-bottom:10px">Paste a real asset's description + facts; get polished store copy. Then set fulfillment, attach the asset, audit, and list.</p>
+      <textarea id="asset" placeholder="Asset: a single-file HTML invoice-reminder dashboard that connects to Stripe…"></textarea>
+      <input id="facts" placeholder="Facts: price band, what's included, who it's for" style="margin-top:8px">
+      <button class="btn green" id="listingBtn" style="margin-top:8px">Generate listing copy</button>
+      <div id="listingOut"></div>
+    </div>
+    <div class="box"><h3>CATALOG — fulfillment &amp; audit gate</h3>
+      ${S.products.length?`<table><thead><tr><th>Product</th><th>Price</th><th>Fulfillment</th><th>Audit</th><th>Live</th><th>Actions</th></tr></thead><tbody>`+
+        S.products.map(p=>`<tr>
+          <td><b>${esc(p.title)}</b></td>
+          <td class="hint">${AUD(p.price_aud)}</td>
+          <td>
+            <select onchange="window.setFulfill('${p.id}',this.value)" style="font-size:10px">
+              ${['concept','building','deliverable_now'].map(f=>`<option value="${f}" ${p.fulfillment===f?'selected':''}>${f.replace('_',' ')}</option>`).join('')}
+            </select>
+            <input placeholder="asset path/url" value="${esc(p.asset_ref||'')}" onblur="window.setAsset('${p.id}',this.value)" style="font-size:10px;margin-top:4px">
+          </td>
+          <td><span class="au ${p.audit_status}">${p.audit_status}</span></td>
+          <td><span class="ff ${p.active?'deliverable_now':'concept'}">${p.active?'LIVE':'off'}</span></td>
+          <td>
+            <button class="btn sm" onclick="window.audit('${p.id}')">audit</button>
+            ${p.fulfillment==='deliverable_now'&&p.audit_status==='passed'&&!p.active?`<button class="btn sm green" onclick="window.list('${p.id}')">list it</button>`:''}
+          </td>
+        </tr>`).join('')+`</tbody></table>`:`<div class="empty">No products yet. Seed your 10 (migrations 002/006) or draft from specs.</div>`}
+      <div id="auditOut"></div>
+    </div>`;
+  $('#listingBtn').onclick=genListing;
+}
+
+/* actions */
+async function ideate(){
+  const btn=$('#ideateBtn'); btn.disabled=true; btn.textContent='Thinking…';
+  const {data,error}=await supa.functions.invoke('catalog-agent',{body:{mode:'ideate',skills:$('#skills').value,assets:$('#assets').value}});
+  btn.disabled=false; btn.textContent='Generate product ideas';
+  if(error||data?.error){toast('Ideation failed — try again.');return;}
+  $('#ideaOut').innerHTML=`<div class="box"><h3>${(data.ideas||[]).length} IDEAS — saved to Specs</h3>${(data.ideas||[]).map(i=>`<div style="padding:8px 0;border-bottom:1px solid rgba(153,69,255,.07)"><b>${esc(i.title)}</b> <span class="effort ${i.build_effort==='have it'?'have':i.build_effort}">${esc(i.build_effort)}</span> <span class="hint">· ${AUD(i.price_band)} · ${esc(i.audience||'')}</span><br><span class="hint">${esc(i.pitch||'')}</span></div>`).join('')}</div>`;
+  load();
+}
+window.toProduct=async(id)=>{const {error}=await supa.rpc('spec_to_product',{p_spec:id});if(error)toast(error.message);else{toast('Draft product created (concept — build the asset, then audit + list).');load();}};
+window.rejectSpec=async(id)=>{await supa.from('product_specs').update({status:'rejected'}).eq('id',id);load();};
+async function genListing(){
+  const btn=$('#listingBtn'); btn.disabled=true; btn.textContent='Writing…';
+  const {data,error}=await supa.functions.invoke('catalog-agent',{body:{mode:'listing',asset:$('#asset').value,facts:$('#facts').value}});
+  btn.disabled=false; btn.textContent='Generate listing copy';
+  if(error||data?.error){toast('Listing failed.');return;}
+  const l=data.listing;
+  $('#listingOut').innerHTML=`<pre>${esc(JSON.stringify(l,null,2))}</pre>
+    <button class="btn green sm" id="saveList" style="margin-top:8px">Save as draft product</button>`;
+  $('#saveList').onclick=async()=>{
+    const slug=(l.title||'product').toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+Math.random().toString(36).slice(2,6);
+    const {error}=await supa.from('vault_products').insert({slug,title:l.title,tagline:l.tagline,description:l.description,includes:l.includes||[],price_aud:l.price_aud||0,config_schema:l.config_schema||{},active:false,fulfillment:'concept',origin:'manual'});
+    if(error)toast(error.message);else{toast('Saved as concept. Attach asset → set deliverable → audit → list.');load();}
+  };
+}
+window.setFulfill=async(id,v)=>{const {error}=await supa.from('vault_products').update({fulfillment:v}).eq('id',id);if(error)toast(error.message);else load();};
+window.setAsset=async(id,v)=>{await supa.from('vault_products').update({asset_ref:v.trim()||null}).eq('id',id);};
+window.audit=async(id)=>{
+  $('#auditOut').innerHTML=`<div class="box"><div class="hint">White-hat audit running…</div></div>`;
+  const {data,error}=await supa.functions.invoke('catalog-agent',{body:{mode:'audit',product_id:id}});
+  if(error||data?.error){toast('Audit failed.');return;}
+  const a=data.audit;
+  $('#auditOut').innerHTML=`<div class="box audit"><h3>AUDIT — <span class="${a.verdict==='pass'?'ok':'issue'}">${a.verdict.toUpperCase()}</span></h3>
+    ${Object.entries(a.checks||{}).map(([k,v])=>`<div><b>${esc(k)}:</b> <span class="${String(v).startsWith('ok')?'ok':'issue'}">${esc(v)}</span></div>`).join('')}
+    <p style="margin-top:8px;color:var(--dim)">${esc(a.summary||'')}</p></div>`;
+  load();
+};
+window.list=async(id)=>{const {error}=await supa.rpc('list_product',{p_id:id});if(error)toast(error.message);else{toast('LISTED — live in the Vault. Real product, real fulfillment.');load();}};
+
+await ensureAuth(); shell(); await load();
+</script>
+</body>
+</html>

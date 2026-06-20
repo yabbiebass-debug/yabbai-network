@@ -61,6 +61,14 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  // webpack-dev-server v5 rejects CRA's legacy middleware hooks. Strip them;
+  // visual-edits re-adds its middleware via the v5 setupMiddlewares API.
+  delete devServerConfig.onBeforeSetupMiddleware;
+  delete devServerConfig.onAfterSetupMiddleware;
+  delete devServerConfig.https;
+  delete devServerConfig.http2;
+  devServerConfig.allowedHosts = "all";
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;

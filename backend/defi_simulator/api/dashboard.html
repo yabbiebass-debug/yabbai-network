@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI DeFi Simulator · v0.1</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#020814; --void-2:#060e20; --void-3:#0d1a35;
+  --sol-purple:#9945FF; --sol-purple-dim:#6922cc;
+  --sol-green:#14F195; --sol-green-dim:#0aaa68;
+  --amber:#F5A623; --danger:#ef4444; --warn:#f97316;
+  --white:#e8f0ff; --muted:#4a6080; --border-glow:rgba(153,69,255,0.35);
+  --font-mono:'JetBrains Mono',monospace; --font-display:'Unbounded',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono);background:var(--void);color:var(--white);
+  min-height:100vh;-webkit-font-smoothing:antialiased;padding:20px;
+  background-image:radial-gradient(circle at 20% 10%,rgba(153,69,255,0.06),transparent 40%),
+                   radial-gradient(circle at 80% 90%,rgba(20,241,149,0.05),transparent 40%);}
+.wrap{max-width:1200px;margin:0 auto}
+.scanline{position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(transparent 0,transparent 1px,rgba(0,0,0,0.015) 1px,rgba(0,0,0,0.015) 2px)}
+header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  gap:12px;margin-bottom:20px;position:relative;z-index:1}
+.brand{font-family:var(--font-display);font-weight:900;font-size:22px;letter-spacing:0.02em}
+.brand span{color:var(--sol-purple)}
+.badge{font-size:10px;letter-spacing:0.1em;padding:3px 8px;border-radius:4px;
+  border:1px solid var(--border-glow);color:var(--sol-purple);text-transform:uppercase}
+.badge-sim{color:var(--sol-green);border-color:var(--sol-green-dim)}
+.badge-safe{color:var(--amber);border-color:var(--amber)}
+.card{background:var(--void-2);border:1px solid var(--border-glow);border-radius:8px;
+  padding:16px;margin-bottom:16px;position:relative;z-index:1;transition:border-color .2s}
+.card:hover{border-color:rgba(153,69,255,0.6)}
+.label{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:768px){.grid-2,.grid-4{grid-template-columns:1fr}}
+.stat-val{font-family:var(--font-display);font-size:24px;margin-top:4px}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.green{color:var(--sol-green)} .purple{color:var(--sol-purple)} .amber{color:var(--amber)} .red{color:var(--danger)}
+input,select{background:var(--void-3);border:1px solid var(--border-glow);color:var(--white);
+  font-family:var(--font-mono);border-radius:4px;padding:8px 10px;width:100%;outline:none;font-size:13px}
+input:focus,select:focus{border-color:var(--sol-purple)}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;
+  letter-spacing:0.1em;margin-bottom:4px}
+.btn{background:transparent;border:1px solid var(--sol-purple);color:var(--sol-purple);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
+  padding:9px 16px;border-radius:4px;cursor:pointer;transition:all .15s}
+.btn:hover{background:rgba(153,69,255,0.15)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-green{border-color:var(--sol-green);color:var(--sol-green)}
+.btn-green:hover{background:rgba(20,241,149,0.12)}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.btn-danger:hover{background:rgba(239,68,68,0.12)}
+.btn-kill{border-width:2px;font-weight:700}
+.modes{display:flex;gap:8px;flex-wrap:wrap}
+.mode-btn{flex:1;min-width:90px;text-align:center}
+.mode-active{background:rgba(153,69,255,0.2);border-color:var(--sol-purple)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;
+  border-bottom:1px solid var(--void-3);font-size:13px}
+.row:last-child{border-bottom:none}
+.pending-item{background:var(--void-3);border:1px solid var(--border-glow);border-radius:6px;
+  padding:10px;margin-bottom:8px;font-size:12px}
+.pending-item .acts{display:flex;gap:6px;margin-top:8px}
+.log{background:var(--void-3);border-radius:6px;padding:10px;height:200px;overflow-y:auto;
+  font-size:11px;line-height:1.7}
+.log .ln{white-space:nowrap}
+.log .t{color:var(--muted)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.dot-green{background:var(--sol-green);box-shadow:0 0 8px var(--sol-green)}
+.dot-red{background:var(--danger)}
+.dot-amber{background:var(--amber)}
+.notice{font-size:11px;color:var(--muted);line-height:1.6;margin-top:8px}
+.pnl-big{font-family:var(--font-display);font-size:40px}
+.toast{position:fixed;top:16px;right:16px;background:var(--void-2);border:1px solid var(--sol-green);
+  padding:12px 16px;border-radius:6px;font-size:12px;z-index:100;max-width:300px;
+  backdrop-filter:blur(12px);animation:slide .2s ease-out}
+.toast.err{border-color:var(--danger)}
+@keyframes slide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.hidden{display:none}
+.killbar{background:rgba(239,68,68,0.1);border:1px solid var(--danger);border-radius:6px;
+  padding:10px;text-align:center;color:var(--danger);font-size:12px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="wrap">
+
+<header>
+  <div>
+    <span class="brand">YABBAI <span>DeFi</span></span>
+    <span class="badge badge-sim">SIMULATOR</span>
+    <span class="badge badge-safe">PAPER · NO REAL FUNDS</span>
+  </div>
+  <div id="connState" class="badge">API: checking…</div>
+</header>
+
+<!-- SETUP -->
+<div class="card" id="setupCard">
+  <div class="label">New Simulation Session</div>
+  <div class="grid grid-2">
+    <div>
+      <div class="field"><label>Starting capital (USD)</label><input id="startUsd" type="number" value="14" step="1"></div>
+      <div class="field"><label>Feed mode</label>
+        <select id="feedMode"><option value="synthetic">Synthetic (offline, instant)</option><option value="live">Live (real Jupiter prices)</option></select></div>
+      <div class="field"><label>Max trade (USD)</label><input id="maxTrade" type="number" value="4" step="0.5"></div>
+    </div>
+    <div>
+      <div class="field"><label>Daily loss cap (USD)</label><input id="lossCap" type="number" value="4" step="0.5"></div>
+      <div class="field"><label>Stop-loss %</label><input id="stopLoss" type="number" value="20" step="1"></div>
+      <div class="field"><label>Take-profit %</label><input id="takeProfit" type="number" value="50" step="1"></div>
+    </div>
+  </div>
+  <button class="btn btn-green" onclick="createSession()">▸ START SESSION</button>
+  <div class="notice">This runs entirely on paper money. The stop-loss and loss cap are real loss-controls —
+    the take-profit is a ceiling you hope to hit, never a promise. No wallet, no keys, no real transactions.</div>
+</div>
+
+<!-- DASHBOARD (hidden until session) -->
+<div id="dash" class="hidden">
+
+  <div id="killbar" class="killbar hidden">⚠ KILL SWITCH ENGAGED — all trading halted</div>
+
+  <!-- mode + controls -->
+  <div class="card">
+    <div class="label">Autonomy Mode</div>
+    <div class="modes">
+      <button class="btn mode-btn" data-mode="manual" onclick="setMode('manual')">Manual</button>
+      <button class="btn mode-btn" data-mode="signed" onclick="setMode('signed')">Signed</button>
+      <button class="btn mode-btn" data-mode="auto" onclick="setMode('auto')">Auto</button>
+    </div>
+    <div class="notice" id="modeNote">Manual: AI proposes trades, you approve each one. Nothing executes without you.</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn" id="tickBtn" onclick="tick(30)">▸ Run 30 ticks</button>
+      <button class="btn btn-green hidden" id="autoStartBtn" onclick="autoStart()">▸ Start Auto Loop</button>
+      <button class="btn hidden" id="autoStopBtn" onclick="autoStop()">■ Stop Auto Loop</button>
+      <button class="btn btn-danger btn-kill" onclick="killSwitch()">⛔ KILL SWITCH</button>
+    </div>
+  </div>
+
+  <!-- portfolio stats -->
+  <div class="grid grid-4">
+    <div class="card"><div class="label">Total Value</div><div class="stat-val purple" id="totalVal">$0.00</div><div class="stat-sub" id="startSub">start $0</div></div>
+    <div class="card"><div class="label">P&L</div><div class="stat-val" id="pnl">$0.00</div><div class="stat-sub" id="pnlPct">0.00%</div></div>
+    <div class="card"><div class="label">Trades</div><div class="stat-val green" id="trades">0</div><div class="stat-sub">executed</div></div>
+    <div class="card"><div class="label">Daily Loss Budget</div><div class="stat-val amber" id="lossBudget">$0.00</div><div class="stat-sub">remaining</div></div>
+  </div>
+
+  <div class="grid grid-2">
+    <!-- pending approvals -->
+    <div class="card">
+      <div class="label">Pending Approvals <span id="pendCount" class="badge">0</span></div>
+      <div id="pendingList"><div class="notice">No actions awaiting approval. Run ticks in manual/signed mode to generate proposals.</div></div>
+    </div>
+
+    <!-- risk status -->
+    <div class="card">
+      <div class="label">Risk Status</div>
+      <div class="row"><span>State</span><span id="riskState"><span class="dot dot-green"></span>active</span></div>
+      <div class="row"><span>Open positions</span><span id="openPos">0</span></div>
+      <div class="row"><span>Daily P&L</span><span id="dailyPnl">$0.00</span></div>
+      <div class="row"><span>Daily volume</span><span id="dailyVol">$0.00</span></div>
+      <div class="row"><span>Feed</span><span id="feedState">synthetic</span></div>
+    </div>
+  </div>
+
+  <!-- activity log -->
+  <div class="card">
+    <div class="label">Activity Log</div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <button class="btn btn-danger" onclick="endSession()">End session</button>
+</div>
+
+</div>
+
+<script>
+const API = localStorage_unavailable_use_const();
+function localStorage_unavailable_use_const(){ return (window.YABBAI_API || 'http://localhost:8800'); }
+
+let SID=null, MODE='manual', AUTO=false, pollTimer=null;
+
+function toast(msg,err){const t=document.createElement('div');t.className='toast'+(err?' err':'');
+  t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3500);}
+
+async function api(path,method='GET',body){
+  try{const r=await fetch(API+path,{method,headers:{'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined});
+    if(!r.ok)throw new Error((await r.json()).detail||r.statusText);return await r.json();
+  }catch(e){toast('API error: '+e.message,true);throw e;}
+}
+
+async function checkHealth(){
+  try{const h=await fetch(API+'/api/health').then(r=>r.json());
+    document.getElementById('connState').textContent='API: online · paper only';
+    document.getElementById('connState').style.color='var(--sol-green)';
+  }catch(e){document.getElementById('connState').textContent='API: offline';
+    document.getElementById('connState').style.color='var(--danger)';}
+}
+
+async function createSession(){
+  const body={
+    starting_usd:+document.getElementById('startUsd').value,
+    mode:'manual', feed_mode:document.getElementById('feedMode').value,
+    max_trade_usd:+document.getElementById('maxTrade').value,
+    daily_loss_cap_usd:+document.getElementById('lossCap').value,
+    stop_loss_pct:+document.getElementById('stopLoss').value,
+    take_profit_pct:+document.getElementById('takeProfit').value,
+  };
+  const r=await api('/api/session/create','POST',body);
+  SID=r.session_id; MODE='manual';
+  document.getElementById('setupCard').classList.add('hidden');
+  document.getElementById('dash').classList.remove('hidden');
+  if(body.feed_mode==='live'){toast('Live mode — warming up real price feed…');await api('/api/session/'+SID+'/warmup','POST');}
+  applyModeUI(); render(r.snapshot); logLine('session started · '+body.feed_mode+' feed','t');
+  startPolling();
+}
+
+function applyModeUI(){
+  document.querySelectorAll('.mode-btn').forEach(b=>{
+    b.classList.toggle('mode-active',b.dataset.mode===MODE);});
+  const notes={manual:'Manual: AI proposes trades, you approve each one. Nothing executes without you.',
+    signed:'Signed: like manual, but each approval represents a wallet signature (placeholder in sim).',
+    auto:'Auto: AI proposes AND executes — but only inside your risk limits. Halts itself on the loss cap.'};
+  document.getElementById('modeNote').textContent=notes[MODE];
+  document.getElementById('autoStartBtn').classList.toggle('hidden',MODE!=='auto'||AUTO);
+  document.getElementById('autoStopBtn').classList.toggle('hidden',!(MODE==='auto'&&AUTO));
+  document.getElementById('tickBtn').classList.toggle('hidden',MODE==='auto'&&AUTO);
+}
+
+async function setMode(m){if(!SID)return;MODE=m;await api('/api/session/'+SID+'/mode','POST',{mode:m});
+  applyModeUI();logLine('mode → '+m,'t');}
+
+async function tick(n){if(!SID)return;
+  const r=await api('/api/session/'+SID+'/tick','POST',{count:n});
+  render(r.snapshot);renderPending(r.pending);logLine('ran '+r.ticks_run+' ticks','t');}
+
+async function autoStart(){if(!SID)return;await api('/api/session/'+SID+'/auto/start','POST');
+  AUTO=true;applyModeUI();toast('Auto loop running');logLine('AUTO loop started','t');}
+async function autoStop(){if(!SID)return;await api('/api/session/'+SID+'/auto/stop','POST');
+  AUTO=false;applyModeUI();logLine('AUTO loop stopped','t');}
+
+async function killSwitch(){if(!SID)return;await api('/api/session/'+SID+'/kill','POST');
+  AUTO=false;applyModeUI();document.getElementById('killbar').classList.remove('hidden');
+  toast('Kill switch engaged — all trading halted',true);logLine('⛔ KILL SWITCH','t');}
+
+async function confirmAction(pid){if(!SID)return;
+  const r=await api('/api/session/'+SID+'/confirm','POST',{pending_id:pid,signature:MODE==='signed'?'sim-signature':null});
+  render(r.snapshot);const out=r.result.outcome;
+  logLine('confirm '+pid+' → '+out, out==='executed'?'green':'amber');
+  refreshPending();}
+async function rejectAction(pid){if(!SID)return;
+  await api('/api/session/'+SID+'/reject','POST',{pending_id:pid});logLine('rejected '+pid,'t');refreshPending();}
+
+async function refreshPending(){if(!SID)return;
+  const r=await api('/api/session/'+SID+'/pending');renderPending(r.pending);}
+
+function renderPending(list){
+  const el=document.getElementById('pendingList');
+  document.getElementById('pendCount').textContent=list.length;
+  if(!list.length){el.innerHTML='<div class="notice">No actions awaiting approval.</div>';return;}
+  el.innerHTML=list.map(p=>`<div class="pending-item">
+    <div><b class="${p.action.type==='buy'?'green':'amber'}">${p.action.type.toUpperCase()}</b>
+    · $${p.action.usd.toFixed(2)} · ${p.action.token.slice(0,8)}…</div>
+    <div style="color:var(--muted);margin-top:4px">${p.action.reason}</div>
+    <div class="acts"><button class="btn btn-green" onclick="confirmAction('${p.id}')">
+      ${MODE==='signed'?'Sign & Execute':'Approve'}</button>
+      <button class="btn btn-danger" onclick="rejectAction('${p.id}')">Reject</button></div></div>`).join('');
+}
+
+function render(s){
+  if(!s)return;const p=s.portfolio,r=s.risk;
+  document.getElementById('totalVal').textContent='$'+p.total_value_usd.toFixed(2);
+  document.getElementById('startSub').textContent='start $'+p.starting_usd.toFixed(2);
+  const pnl=p.unrealized_plus_realized_pnl_usd;
+  const pe=document.getElementById('pnl');pe.textContent=(pnl>=0?'+':'')+'$'+pnl.toFixed(2);
+  pe.className='stat-val '+(pnl>=0?'green':'red');
+  document.getElementById('pnlPct').textContent=(p.pnl_pct>=0?'+':'')+p.pnl_pct.toFixed(2)+'%';
+  document.getElementById('trades').textContent=p.trade_count;
+  document.getElementById('lossBudget').textContent='$'+(r.remaining_loss_budget_usd||0).toFixed(2);
+  document.getElementById('openPos').textContent=r.open_positions;
+  document.getElementById('dailyPnl').textContent='$'+r.realized_pnl_usd.toFixed(2);
+  document.getElementById('dailyVol').textContent='$'+r.traded_volume_usd.toFixed(2);
+  document.getElementById('feedState').textContent=s.feed_mode+(s.warmed?'':' (warming)');
+  const rs=document.getElementById('riskState');
+  if(r.halted){rs.innerHTML='<span class="dot dot-red"></span>halted';}
+  else{rs.innerHTML='<span class="dot dot-green"></span>active';}
+  if(s.auto_running!==AUTO){AUTO=s.auto_running;applyModeUI();}
+}
+
+function logLine(msg,cls){
+  const log=document.getElementById('log');const t=new Date().toTimeString().slice(0,8);
+  const div=document.createElement('div');div.className='ln';
+  div.innerHTML=`<span class="t">[${t}]</span> <span class="${cls||''}">${msg}</span>`;
+  log.insertBefore(div,log.firstChild);
+  while(log.children.length>60)log.removeChild(log.lastChild);
+}
+
+function startPolling(){
+  if(pollTimer)clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{if(!SID)return;
+    try{const s=await fetch(API+'/api/session/'+SID).then(r=>r.json());render(s);
+      if(MODE!=='auto')refreshPending();}catch(e){}
+  },3000);
+}
+
+async function endSession(){if(!SID)return;await api('/api/session/'+SID,'DELETE');
+  if(pollTimer)clearInterval(pollTimer);SID=null;AUTO=false;
+  document.getElementById('dash').classList.add('hidden');
+  document.getElementById('setupCard').classList.remove('hidden');
+  document.getElementById('killbar').classList.add('hidden');toast('Session ended');}
+
+checkHealth();setInterval(checkHealth,15000);
+</script>
+</body>
+</html>

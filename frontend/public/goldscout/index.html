@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🏴‍☠️ GoldScout — YABBAI</title>
+<style>
+  :root{--bg:#060e20;--surface:#0b1628;--border:#1a2a4a;--purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#ef4444;--orange:#f97316;--text:#e8f0ff;--muted:#4a6080;--font:'JetBrains Mono',monospace}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:18px;font-weight:700;color:var(--purple)}
+  header .sub{font-size:11px;color:var(--muted);margin-left:auto}
+  .nav-links{display:flex;gap:12px;font-size:11px}
+  .nav-links a{color:var(--muted);text-decoration:none;padding:4px 10px;border:1px solid var(--border);border-radius:4px;transition:all .2s}
+  .nav-links a:hover{color:var(--green);border-color:var(--green)}
+  main{padding:24px;max-width:1400px;margin:0 auto}
+
+  /* Safety rules banner */
+  .rules-banner{background:rgba(245,166,35,0.06);border:1px solid var(--amber);border-radius:8px;padding:14px 18px;margin-bottom:20px}
+  .rules-banner .title{color:var(--amber);font-size:12px;font-weight:700;margin-bottom:8px}
+  .rules-banner ul{list-style:none;padding:0;font-size:11.5px;color:#b0a080;line-height:1.8}
+  .rules-banner li::before{content:"⚓ ";color:var(--amber)}
+
+  /* Controls bar */
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+  .btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;border-radius:5px;cursor:pointer;font-family:var(--font);font-size:11px;text-transform:uppercase;transition:all .2s}
+  .btn:hover{border-color:var(--purple);color:var(--purple)}
+  .btn.primary{border-color:var(--green);color:var(--green)}
+  .btn.primary:hover{background:rgba(20,241,149,0.08)}
+  .btn.active{background:rgba(153,69,255,0.15);border-color:var(--purple);color:var(--purple)}
+  .btn.danger{border-color:var(--red);color:var(--red)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .filters{display:flex;gap:6px;flex-wrap:wrap}
+  .spacer{flex:1}
+
+  /* Status bar */
+  .status-bar{font-size:11px;color:var(--muted);padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .status-bar .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+  .status-bar .dot.running{background:var(--green);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .status-bar .highlight{color:var(--text)}
+
+  /* Grid */
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .empty{color:var(--muted);font-size:13px;padding:40px;text-align:center;border:1px dashed var(--border);border-radius:8px}
+
+  /* Cards */
+  .card{background:var(--surface);border-radius:8px;padding:16px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;transition:border-color .2s}
+  .card.low{border-color:rgba(20,241,149,.4)}
+  .card.medium{border-color:rgba(245,166,35,.4)}
+  .card.high{border-color:rgba(249,115,22,.4)}
+  .card.critical{border-color:rgba(239,68,68,.4)}
+  .card-header{display:flex;justify-content:space-between;align-items:start;gap:8px}
+  .card-cat{font-size:10px;text-transform:uppercase;color:var(--muted);flex:1}
+  .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
+  .badge.low{color:var(--green);border:1px solid var(--green)}
+  .badge.medium{color:var(--amber);border:1px solid var(--amber)}
+  .badge.high{color:var(--orange);border:1px solid var(--orange)}
+  .badge.critical{color:var(--red);border:1px solid var(--red)}
+  .card-title{font-size:13.5px;font-weight:600;line-height:1.35;color:var(--text)}
+  .card-snippet{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .red-flags{font-size:11px;color:var(--red);line-height:1.6}
+  .red-flags div::before{content:"🚩 "}
+  .verdict{font-size:11px;color:var(--muted);font-style:italic;line-height:1.4}
+  .capital-tag{font-size:10px;color:var(--amber);background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:3px;padding:1px 6px;display:inline-block;margin-top:2px}
+  .research-btn{margin-top:auto;background:transparent;border:1px solid var(--purple);color:var(--purple);padding:8px 12px;border-radius:5px;cursor:pointer;font-family:var(--font);font-size:11px;text-transform:uppercase;width:100%;transition:all .2s}
+  .research-btn:hover{background:rgba(153,69,255,.12)}
+
+  /* Summary panel */
+  .summary{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;font-size:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+  .stat{display:flex;flex-direction:column;gap:3px}
+  .stat .val{font-size:20px;font-weight:700;color:var(--text)}
+  .stat .lbl{font-size:10px;color:var(--muted);text-transform:uppercase}
+  .stat .val.green{color:var(--green)}
+  .stat .val.red{color:var(--red)}
+  .stat .val.amber{color:var(--amber)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏴‍☠️ GoldScout</h1>
+  <span style="font-size:12px;color:var(--muted)">scam-filter · research leads · no execute</span>
+  <div class="nav-links">
+    <a href="http://localhost:7860" target="_blank">YABBAI Core</a>
+    <a href="http://localhost:8000" target="_blank">DeFi Backend</a>
+    <a href="/auth/logout">Logout</a>
+  </div>
+</header>
+
+<main>
+
+  <div class="rules-banner">
+    <div class="title">⚓ NON-NEGOTIABLE SAFETY RULES</div>
+    <ul id="rules-list"></ul>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="run-btn" onclick="runScout()">▶ Run Scout</button>
+    <button class="btn danger" onclick="clearFindings()">✕ Clear All</button>
+    <div class="spacer"></div>
+    <div class="filters" id="filters">
+      <button class="btn active" data-filter="all" onclick="setFilter(this,'all')">All</button>
+      <button class="btn" data-filter="safe-ish" onclick="setFilter(this,'safe-ish')">Safe-ish</button>
+      <button class="btn" data-filter="flagged" onclick="setFilter(this,'flagged')">Flagged</button>
+      <button class="btn" data-filter="airdrop" onclick="setFilter(this,'airdrop')">Airdrop</button>
+      <button class="btn" data-filter="testnet" onclick="setFilter(this,'testnet')">Testnet</button>
+      <button class="btn" data-filter="quest" onclick="setFilter(this,'quest')">Quest</button>
+      <button class="btn" data-filter="staking" onclick="setFilter(this,'staking')">Staking</button>
+      <button class="btn" data-filter="points" onclick="setFilter(this,'points')">Points</button>
+      <button class="btn" data-filter="depin" onclick="setFilter(this,'depin')">DePIN</button>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-text">Loading…</span>
+  </div>
+
+  <div class="summary" id="summary" style="display:none">
+    <div class="stat"><div class="val green" id="s-total">0</div><div class="lbl">total findings</div></div>
+    <div class="stat"><div class="val green" id="s-low">0</div><div class="lbl">low risk</div></div>
+    <div class="stat"><div class="val amber" id="s-med">0</div><div class="lbl">medium risk</div></div>
+    <div class="stat"><div class="val red" id="s-high">0</div><div class="lbl">high / critical</div></div>
+    <div class="stat"><div class="val" id="s-last">—</div><div class="lbl">last scan</div></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</main>
+
+<script>
+const GS = window.location.origin + '/api/goldscout';
+let currentFilter = 'all';
+let pollTimer = null;
+
+const RISK_COLORS = {low:'var(--green)', medium:'var(--amber)', high:'var(--orange)', critical:'var(--red)'};
+
+async function loadRules() {
+  try {
+    const r = await fetch(GS+'/api/scout/rules');
+    const d = await r.json();
+    const ul = document.getElementById('rules-list');
+    ul.innerHTML = d.rules.map(r => `<li>${r}</li>`).join('');
+  } catch {}
+}
+
+async function loadFindings() {
+  const r = await fetch(`${GS}/api/scout/findings?risk=${currentFilter}`);
+  const d = await r.json();
+  renderFindings(d.findings || []);
+  updateSummary(d.findings || []);
+}
+
+function updateSummary(findings) {
+  const el = document.getElementById('summary');
+  if (!findings.length) { el.style.display='none'; return; }
+  el.style.display = 'grid';
+  const low  = findings.filter(f => f.risk_level==='low').length;
+  const med  = findings.filter(f => f.risk_level==='medium').length;
+  const high = findings.filter(f => ['high','critical'].includes(f.risk_level)).length;
+  document.getElementById('s-total').textContent = findings.length;
+  document.getElementById('s-low').textContent   = low;
+  document.getElementById('s-med').textContent   = med;
+  document.getElementById('s-high').textContent  = high;
+}
+
+function renderFindings(findings) {
+  const grid = document.getElementById('grid');
+  if (!findings.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      No findings yet${currentFilter!=='all'?' for this filter':''}.
+      ${currentFilter==='all' ? 'Click <b>▶ Run Scout</b> to scan the web.' : ''}
+    </div>`;
+    return;
+  }
+  grid.innerHTML = findings.map(f => `
+    <div class="card ${f.risk_level}">
+      <div class="card-header">
+        <span class="card-cat">${f.opportunity_type || f.category}</span>
+        <span class="badge ${f.risk_level}">${(f.risk_level||'').toUpperCase()} ${f.risk_score}/100</span>
+      </div>
+      <div class="card-title">${esc(f.title)}</div>
+      <div class="card-snippet">${esc((f.snippet||'').slice(0,130))}…</div>
+      ${f.requires_capital ? '<span class="capital-tag">⚠ Requires capital</span>' : ''}
+      ${(f.red_flags||[]).length ? `<div class="red-flags">${f.red_flags.map(fl=>`<div>${esc(fl)}</div>`).join('')}</div>` : ''}
+      <div class="verdict">${esc(f.verdict)}</div>
+      <button class="research-btn" onclick="research(${JSON.stringify(f).replace(/"/g,'&quot;')})">
+        🔍 Research (opens with safety check)
+      </button>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function research(f) {
+  const flags = (f.red_flags||[]).length ? `Red flags:\n• ${f.red_flags.join('\n• ')}\n\n` : '';
+  const proceed = confirm(
+    `SAFETY CHECK before you open this\n\n` +
+    `${f.title}\nRisk: ${(f.risk_level||'').toUpperCase()} (${f.risk_score}/100)\n\n` +
+    flags +
+    `Remember:\n• NEVER enter your seed phrase\n• Verify the URL is the official project\n` +
+    `• Use a burner wallet\n• Reject unlimited approval requests\n\n` +
+    `Opens in a new tab for RESEARCH only. You act manually, in your own wallet.\n\nOpen it?`
+  );
+  if (proceed) window.open(f.url, '_blank', 'noopener,noreferrer');
+}
+
+async function runScout() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Scanning…';
+  try {
+    await fetch(GS+'/api/scout/run', {method:'POST'});
+    pollStatus();
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '▶ Run Scout';
+    alert('Failed to start scout: ' + e);
+  }
+}
+
+function pollStatus() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const r = await fetch(GS+'/api/scout/status');
+    const d = await r.json();
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    const btn = document.getElementById('run-btn');
+    if (d.running) {
+      dot.className = 'dot running';
+      txt.innerHTML = '<span class="highlight">Scanning…</span> Searching Tavily + running scam analysis on every result';
+    } else {
+      dot.className = 'dot';
+      clearInterval(pollTimer);
+      btn.disabled = false; btn.textContent = '▶ Run Scout';
+      if (d.last_summary) {
+        const s = d.last_summary;
+        const last = d.last_run ? new Date(d.last_run).toLocaleString() : '—';
+        document.getElementById('s-last').textContent = last;
+        txt.innerHTML = `Last scan: <span class="highlight">${last}</span> · ` +
+          `Scanned ${s.scanned||0} · Kept ${s.new_kept||0} · Flagged ${s.flagged_as_risky||0} scammy` +
+          (s.errors?.length ? ` · <span style="color:var(--amber)">${s.errors.length} search errors</span>` : '');
+        if (!d.tavily_configured) {
+          txt.innerHTML = '⚠ TAVILY_API_KEY not set — add it to .env and restart. Get a free key at <a href="https://app.tavily.com" target="_blank" style="color:var(--green)">app.tavily.com</a>';
+        }
+      }
+      await loadFindings();
+    }
+  }, 2000);
+}
+
+async function clearFindings() {
+  if (!confirm('Clear all findings? This cannot be undone.')) return;
+  await fetch(GS+'/api/scout/clear', {method:'POST'});
+  await loadFindings();
+}
+
+function setFilter(btn, filter) {
+  currentFilter = filter;
+  document.querySelectorAll('#filters .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadFindings();
+}
+
+async function initStatus() {
+  const r = await fetch(GS+'/api/scout/status');
+  const d = await r.json();
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  if (d.running) {
+    dot.className = 'dot running';
+    txt.textContent = 'Scout running…';
+    pollStatus();
+  } else if (d.last_run) {
+    dot.className = 'dot';
+    const last = new Date(d.last_run).toLocaleString();
+    document.getElementById('s-last').textContent = last;
+    txt.innerHTML = `Last scan: <span class="highlight">${last}</span>`;
+    if (!d.tavily_configured) {
+      txt.innerHTML = '⚠ TAVILY_API_KEY not set. Add it to .env and restart. Get a free key at <a href="https://app.tavily.com" target="_blank" style="color:var(--green)">app.tavily.com</a>';
+    }
+  } else {
+    dot.className = 'dot';
+    txt.innerHTML = d.tavily_configured
+      ? 'Ready. Click <b>▶ Run Scout</b> to scan the web.'
+      : '⚠ TAVILY_API_KEY not set. Add it to .env and restart. Get a free key at <a href="https://app.tavily.com" target="_blank" style="color:var(--green)">app.tavily.com</a>';
+  }
+}
+
+(async () => {
+  await loadRules();
+  await initStatus();
+  await loadFindings();
+})();
+</script>
+</body>
+</html>

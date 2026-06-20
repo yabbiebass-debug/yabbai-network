@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI MISSION CONTROL — Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#071021;--panel2:#0a1530;--line:rgba(153,69,255,.16);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;
+    --ink:#E8ECF8;--dim:#8B93B0;--dim2:#5a6182;--disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.5}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  input,select,textarea{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:8px 10px;border-radius:2px;font-size:12px}
+  .bar{display:flex;align-items:center;gap:18px;padding:14px 20px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(153,69,255,.06),transparent);flex-wrap:wrap}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}
+  .brand b{color:var(--purple)}
+  .brand small{display:block;font-family:var(--mono);font-weight:400;font-size:9.5px;color:var(--dim);letter-spacing:2px;margin-top:2px}
+  .kpis{display:flex;gap:26px;margin-left:auto;flex-wrap:wrap}
+  .kpi{text-align:right}.kpi .v{font-family:var(--disp);font-weight:600;font-size:17px}
+  .kpi .l{font-size:9px;letter-spacing:2px;color:var(--dim);text-transform:uppercase}
+  .kpi.money .v{color:var(--green)}.kpi.pipe .v{color:var(--purple)}
+  .btn{padding:9px 16px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:11px;
+    letter-spacing:1.5px;text-transform:uppercase;border-radius:2px;transition:all .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .btn.primary{background:var(--purple);color:#fff}
+  .btn.quiet{border-color:var(--dim2);color:var(--dim)}
+  .livebadge{font-size:9px;letter-spacing:2px;padding:5px 10px;border:1px solid var(--green);color:var(--green);border-radius:2px}
+  .tabs{display:flex;border-bottom:1px solid var(--line);padding:0 20px;flex-wrap:wrap}
+  .tab{padding:14px 18px;font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);border-bottom:2px solid transparent}
+  .tab.on{color:var(--ink);border-bottom-color:var(--purple)}
+  .tab .pill{display:inline-block;margin-left:7px;min-width:18px;text-align:center;padding:1px 5px;font-size:9px;
+    border-radius:9px;background:var(--amber);color:#0a0a0a;font-weight:700}
+  .panel{display:none;padding:20px;max-width:1100px}
+  .panel.on{display:block}
+  .empty{padding:50px 20px;text-align:center;color:var(--dim2)}
+  .empty .big{font-family:var(--disp);font-size:13px;color:var(--dim);margin-bottom:8px}
+  .card{border:1px solid var(--line);border-left:3px solid var(--amber);background:var(--panel);padding:14px 16px;margin-bottom:10px;border-radius:2px}
+  .card .toprow{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+  .tag{font-size:8.5px;letter-spacing:1.5px;padding:3px 8px;border-radius:2px;font-weight:700;text-transform:uppercase;border:1px solid}
+  .tag.outreach{color:var(--purple);border-color:var(--purple)}
+  .tag.contract,.tag.spend{color:var(--amber);border-color:var(--amber)}
+  .tag.ship{color:var(--green);border-color:var(--green)}
+  .tag.fork{color:var(--ink);border-color:var(--dim2)}
+  .tag.save{color:var(--red);border-color:var(--red)}
+  .card h3{font-size:12.5px}.card .by{margin-left:auto;font-size:9.5px;color:var(--dim2)}
+  .card pre{font-size:11px;color:var(--dim);margin:4px 0 10px;white-space:pre-wrap;font-family:var(--mono)}
+  .acts{display:flex;gap:8px}
+  .act{padding:7px 14px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:2px;border:1px solid}
+  .act.yes{border-color:var(--green);color:var(--green)}.act.yes:hover{background:var(--green);color:#021}
+  .act.no{border-color:var(--dim2);color:var(--dim)}.act.no:hover{border-color:var(--red);color:var(--red)}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:9px 10px;border-bottom:1px solid rgba(153,69,255,.07);font-size:11.5px;vertical-align:top}
+  .fit{font-weight:700}.fit.Hot{color:var(--green)}.fit.Warm{color:var(--amber)}.fit.Cold{color:var(--dim2)}
+  .stage{font-size:10px;color:var(--dim)}
+  .mini{padding:5px 10px;border:1px solid var(--green);color:var(--green);font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;border-radius:2px}
+  .mini:hover{background:var(--green);color:#021}
+  .mini.alt{border-color:var(--purple);color:var(--purple)}
+  .mini.alt:hover{background:var(--purple);color:#fff}
+  .mrr{color:var(--green);font-weight:700}
+  .health.ok{color:var(--green);font-size:10px}.health.risk{color:var(--red);font-size:10px}
+  .log{font-size:11px;line-height:1.9}
+  .log .row{display:flex;gap:12px;border-bottom:1px solid rgba(153,69,255,.05);padding:3px 0}
+  .log .c{color:var(--dim2);flex:none;width:52px}.log .a{color:var(--purple);flex:none;width:84px;font-weight:700}.log .m{color:var(--dim)}
+  .formrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-start}
+  .formrow input{min-width:130px}
+  .hint{font-size:10px;color:var(--dim2);margin-top:6px;line-height:1.6}
+  /* auth + modal */
+  .gatewrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .gate{border:1px solid var(--line);background:var(--panel);padding:34px;max-width:420px;width:100%;border-radius:2px}
+  .gate h1{font-family:var(--disp);font-size:16px;margin-bottom:6px}
+  .gate h1 b{color:var(--purple)}
+  .gate p{font-size:11px;color:var(--dim);margin-bottom:16px;line-height:1.7}
+  .gate input{width:100%;margin-bottom:10px}
+  .modalbg{position:fixed;inset:0;background:rgba(2,8,20,.85);display:none;align-items:center;justify-content:center;z-index:9}
+  .modalbg.on{display:flex}
+  .modal{border:1px solid var(--line);background:var(--panel);padding:24px;width:380px;border-radius:2px}
+  .modal h3{font-family:var(--disp);font-size:12px;margin-bottom:14px}
+  .modal label{display:block;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin:10px 0 4px}
+  .modal select,.modal input{width:100%}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--panel);border:1px solid var(--green);color:var(--green);
+    padding:10px 16px;font-size:11px;border-radius:2px;display:none;z-index:10}
+  @media (max-width:720px){.kpis{gap:14px}.panel{padding:14px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ============================================================
+   CONFIG — paste your project values (Settings → API).
+   The anon key is PUBLIC by design; RLS protects your data.
+   NEVER put the service-role key here.
+   ============================================================ */
+const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+
+const PACKAGES = {Starter:1500, Growth:4000, 'Full Ops':8000};
+const TIERS = {Maintain:500, Optimize:1500, Scale:3500};
+const $ = s => document.querySelector(s);
+const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast = m => { const t=$('#toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',2600); };
+
+if (SUPABASE_URL.startsWith('PASTE')) {
+  document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
+    <h1>YABBAI <b>//</b> MISSION CONTROL</h1>
+    <p>Config needed. Open this file, paste your <b>SUPABASE_URL</b> and <b>ANON KEY</b> at the top of the script (Supabase → Settings → API), redeploy. Full steps in README_DEPLOY.md.</p>
+  </div></div>`;
+  throw new Error('config');
+}
+const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------------- auth gate ---------------- */
+async function ensureAuth(){
+  const { data:{ session } } = await supa.auth.getSession();
+  if (session) return session;
+  document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
+    <h1>YABBAI <b>//</b> MISSION CONTROL</h1>
+    <p>Director sign-in. Magic link to your email — no passwords stored.</p>
+    <input id="em" type="email" placeholder="you@email.com" autocomplete="email">
+    <button class="btn primary" id="go" style="width:100%">Send magic link</button>
+    <p class="hint" id="msg"></p>
+  </div></div>`;
+  $('#go').onclick = async () => {
+    const email = $('#em').value.trim();
+    if(!email) return;
+    const { error } = await supa.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href }});
+    $('#msg').textContent = error ? error.message : 'Link sent — check your inbox, then return here.';
+  };
+  return new Promise(res => supa.auth.onAuthStateChange((_e, s)=>{ if(s) res(s); }));
+}
+
+/* ---------------- state + loaders ---------------- */
+const S = { leads:[], clients:[], approvals:[], events:[], money:{mrr:0,cash_collected:0,active_clients:0}, cycles:0 };
+
+async function loadAll(){
+  const [l,c,a,e,m,cy] = await Promise.all([
+    supa.from('leads').select('*').order('created_at',{ascending:false}),
+    supa.from('clients').select('*').order('created_at',{ascending:false}),
+    supa.from('approvals').select('*').eq('status','pending').order('created_at',{ascending:false}),
+    supa.from('events').select('*').order('created_at',{ascending:false}).limit(80),
+    supa.from('money_view').select('*').single(),
+    supa.from('cycles').select('*',{count:'exact',head:true}),
+  ]);
+  S.leads=l.data||[]; S.clients=c.data||[]; S.approvals=a.data||[]; S.events=e.data||[];
+  S.money=m.data||S.money; S.cycles=cy.count||0;
+  renderAll();
+}
+
+/* ---------------- shell ---------------- */
+function shell(){
+  document.getElementById('app').innerHTML = `
+  <header class="bar">
+    <div class="brand">YABBAI <b>//</b> MISSION CONTROL
+      <small>BASHAM AUTOMATIONS · LIVE · DIRECTOR EDITION</small></div>
+    <div class="kpis">
+      <div class="kpi money"><div class="v" id="kMrr"></div><div class="l">MRR (AUD)</div></div>
+      <div class="kpi pipe"><div class="v" id="kPipe"></div><div class="l">Pipeline</div></div>
+      <div class="kpi"><div class="v" id="kCash"></div><div class="l">Cash collected</div></div>
+      <div class="kpi"><div class="v" id="kCycle"></div><div class="l">Cycles</div></div>
+    </div>
+    <span class="livebadge">LIVE DATA</span>
+    <button class="btn primary" id="runBtn">Run cycle</button>
+    <button class="btn quiet" id="outBtn">Sign out</button>
+  </header>
+  <nav class="tabs">
+    <button class="tab on" data-t="approvals">Approvals <span class="pill" id="apCount" style="display:none"></span></button>
+    <button class="tab" data-t="pipeline">Pipeline</button>
+    <button class="tab" data-t="clients">Clients</button>
+    <button class="tab" data-t="log">Log</button>
+  </nav>
+  <section class="panel on" id="p-approvals"></section>
+  <section class="panel" id="p-pipeline"></section>
+  <section class="panel" id="p-clients"></section>
+  <section class="panel" id="p-log"><div class="log" id="logBox"></div></section>
+
+  <div class="modalbg" id="closeModal"><div class="modal">
+    <h3>Close the deal — your call, your numbers</h3>
+    <label>Package</label><select id="mPkg">${Object.entries(PACKAGES).map(([k,v])=>`<option value="${k}">${k} — ${AUD(v)}</option>`).join('')}</select>
+    <label>Retainer tier</label><select id="mTier">${Object.entries(TIERS).map(([k,v])=>`<option value="${k}">${k} — ${AUD(v)}/mo</option>`).join('')}</select>
+    <div class="acts" style="margin-top:18px">
+      <button class="act yes" id="mGo">Mark closed</button>
+      <button class="act no" id="mNo">Cancel</button>
+    </div>
+  </div></div>`;
+
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on'); $('#p-'+t.dataset.t).classList.add('on');
+  });
+  $('#outBtn').onclick = async ()=>{ await supa.auth.signOut(); location.reload(); };
+  $('#runBtn').onclick = runCycle;
+  $('#mNo').onclick = ()=> $('#closeModal').classList.remove('on');
+}
+
+/* ---------------- actions ---------------- */
+async function runCycle(){
+  const b=$('#runBtn'); b.disabled=true; b.textContent='Running…';
+  const { data, error } = await supa.functions.invoke('cycle-runner', { body:{} });
+  b.disabled=false; b.textContent='Run cycle';
+  if (error) { toast('Cycle failed: '+(error.message||error)); return; }
+  toast(`Cycle ${data.cycle}: ${data.qualified} scored · ${data.drafted} drafts queued`);
+  loadAll();
+}
+window.decide = async (id, ok) => {
+  const { error } = await supa.rpc(ok?'approve_approval':'reject_approval', { p_id:id });
+  if (error) toast(error.message); else loadAll();
+};
+window.markReplied = async (id) => {
+  const { error } = await supa.rpc('mark_replied', { p_lead_id:id });
+  if (error) toast(error.message); else { toast('Contract gate queued'); loadAll(); }
+};
+let closingLead = null;
+window.openClose = (id) => { closingLead=id; $('#closeModal').classList.add('on'); };
+async function confirmClose(){
+  const pkg=$('#mPkg').value, tier=$('#mTier').value;
+  const { error } = await supa.rpc('close_deal', {
+    p_lead_id: closingLead, p_package: pkg, p_tier: tier,
+    p_fee: PACKAGES[pkg], p_mrr: TIERS[tier],
+  });
+  $('#closeModal').classList.remove('on');
+  if (error) toast(error.message); else { toast('Closed. Setup fee logged, build queued.'); loadAll(); }
+}
+window.addLead = async () => {
+  const biz=$('#nBiz').value.trim(); if(!biz) return;
+  const { error } = await supa.from('leads').insert({
+    biz, niche:$('#nNiche').value.trim()||null, suburb:$('#nSub').value.trim()||null,
+    pain:$('#nPain').value.trim()||null, email:$('#nEmail').value.trim()||null,
+  });
+  if (error) toast(error.message);
+  else { ['#nBiz','#nNiche','#nSub','#nPain','#nEmail'].forEach(s=>$(s).value=''); toast('Lead added — run a cycle to score it'); loadAll(); }
+};
+window.setBuild = async (id, pct) => {
+  pct = Math.min(100, pct);
+  const patch = { build_pct: pct };
+  if (pct >= 100) patch.status = 'QA';
+  const { error } = await supa.from('clients').update(patch).eq('id', id);
+  if (error) toast(error.message); else loadAll();
+};
+window.queueShip = async (id) => {
+  const c = S.clients.find(x=>x.id===id); if(!c) return;
+  await supa.from('clients').update({ status:'Ship pending' }).eq('id', id);
+  const { error } = await supa.from('approvals').insert({
+    type:'ship', title:`Ship build → ${c.biz}`,
+    detail:`${c.package??'Build'} passed QA. Approving marks the ${c.tier??''} retainer ACTIVE (${AUD(c.mrr)}/mo).`,
+    agent:'SHIPPER', payload:{ client_id:c.id },
+  });
+  if (error) toast(error.message); else { toast('Ship gate queued'); loadAll(); }
+};
+
+/* ---------------- renderers ---------------- */
+function renderAll(){
+  $('#kMrr').textContent = AUD(S.money.mrr)+'/mo';
+  $('#kCash').textContent = AUD(S.money.cash_collected);
+  $('#kCycle').textContent = S.cycles;
+  const pipeVal = S.leads.filter(l=>['Replied','Awaiting close'].includes(l.stage)).length * 4000;
+  $('#kPipe').textContent = AUD(pipeVal);
+
+  // approvals
+  const ap=$('#p-approvals');
+  if(!S.approvals.length){
+    ap.innerHTML = `<div class="empty"><div class="big">No approvals waiting</div>Add leads, run a cycle. Anything touching money, contracts, shipping, or forks lands here for your call.</div>`;
+  } else {
+    ap.innerHTML = S.approvals.map(a=>`
+      <div class="card"><div class="toprow">
+        <span class="tag ${a.type}">${a.type}</span><h3>${esc(a.title)}</h3><span class="by">queued by ${esc(a.agent)}</span></div>
+        <pre>${esc(a.detail||'')}</pre>
+        <div class="acts">
+          <button class="act yes" onclick="decide('${a.id}',true)">Approve</button>
+          <button class="act no" onclick="decide('${a.id}',false)">Reject</button>
+        </div></div>`).join('');
+  }
+  const n=S.approvals.length, pill=$('#apCount');
+  pill.style.display=n?'inline-block':'none'; pill.textContent=n;
+
+  // pipeline
+  const live=S.leads.filter(l=>!['Won','Dead'].includes(l.stage));
+  $('#p-pipeline').innerHTML = `
+    <div class="formrow">
+      <input id="nBiz" placeholder="Business name *">
+      <input id="nNiche" placeholder="Niche">
+      <input id="nSub" placeholder="Suburb">
+      <input id="nPain" placeholder="Pain (no booking, slow replies…)">
+      <input id="nEmail" placeholder="Email">
+      <button class="btn" onclick="addLead()">Add lead</button>
+    </div>
+    <p class="hint">Feed real prospects in (Google Maps, FB groups, NDIS directory). Run cycle → QUALIFIER scores them → PITCHER drafts outreach for Hot ones → you approve sends. When one replies in your inbox, hit <b>Replied</b>.</p>
+    ${ live.length ? `<table><thead><tr><th>Business</th><th>Niche · Suburb</th><th>Pain</th><th>Fit</th><th>Stage</th><th></th></tr></thead><tbody>` +
+      live.map(l=>`<tr>
+        <td><b>${esc(l.biz)}</b></td>
+        <td class="stage">${esc(l.niche||'—')} · ${esc(l.suburb||'—')}</td>
+        <td class="stage">${esc(l.pain||'—')}</td>
+        <td class="fit ${l.fit||''}">${l.fit||'—'}</td>
+        <td class="stage">${esc(l.stage)}</td>
+        <td>${ l.stage==='Contacted' ? `<button class="mini alt" onclick="markReplied('${l.id}')">Replied</button>`
+             : ['Awaiting close','Replied'].includes(l.stage) ? `<button class="mini" onclick="openClose('${l.id}')">Mark closed — I took the call</button>` : ''}</td>
+      </tr>`).join('') + `</tbody></table>`
+    : `<div class="empty"><div class="big">Pipeline is empty</div>Add your first real prospect above.</div>`}`;
+
+  // clients
+  $('#p-clients').innerHTML = S.clients.length ? `<table><thead><tr>
+    <th>Client</th><th>Package</th><th>Build</th><th>Status</th><th>Retainer</th><th>Health</th><th></th></tr></thead><tbody>`+
+    S.clients.map(c=>`<tr>
+      <td><b>${esc(c.biz)}</b></td><td class="stage">${esc(c.package||'—')}</td>
+      <td class="stage">${c.build_pct}%</td>
+      <td class="stage">${esc(c.status)}</td>
+      <td class="mrr">${c.status==='Active'?AUD(c.mrr)+'/mo':'—'}</td>
+      <td class="health ${c.health}">${c.health==='ok'?'stable':'churn risk'}</td>
+      <td>${ c.status==='Onboarding' ? `<button class="mini alt" onclick="setBuild('${c.id}',${c.build_pct+25})">+25% build</button>`
+           : c.status==='QA' ? `<button class="mini" onclick="queueShip('${c.id}')">Queue ship gate</button>` : ''}</td>
+    </tr>`).join('')+`</tbody></table>`
+  : `<div class="empty"><div class="big">No clients yet</div>Close a deal in the pipeline, or let a Stripe checkout create one automatically.</div>`;
+
+  // log
+  $('#logBox').innerHTML = S.events.map(r=>`<div class="row">
+    <span class="c">C${String(r.cycle_n).padStart(3,'0')}</span>
+    <span class="a">${esc(r.agent)}</span><span class="m">${esc(r.message)}</span></div>`).join('')
+    || `<div class="empty">No events yet. Run your first cycle.</div>`;
+
+  $('#mGo').onclick = confirmClose;
+}
+
+/* ---------------- boot ---------------- */
+await ensureAuth();
+shell();
+await loadAll();
+supa.channel('live')
+  .on('postgres_changes',{event:'*',schema:'public',table:'approvals'},()=>loadAll())
+  .on('postgres_changes',{event:'*',schema:'public',table:'events'},()=>loadAll())
+  .subscribe();
+</script>
+</body>
+</html>

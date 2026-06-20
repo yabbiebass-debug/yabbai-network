@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI AI — the routed brain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.6;height:100%}
+  body{background:radial-gradient(1100px 600px at 50% -10%,rgba(153,69,255,.10),transparent 60%),var(--void);display:flex;flex-direction:column;min-height:100vh}
+  a{color:var(--purple);text-decoration:none}
+  .nav{display:flex;align-items:center;gap:10px;padding:16px 22px;border-bottom:1px solid var(--line)}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}.brand b{color:var(--purple)}
+  .chip{margin-left:auto;font-size:9px;letter-spacing:1.5px;padding:5px 10px;border-radius:99px;border:1px solid var(--green);color:var(--green);text-transform:uppercase}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;box-shadow:0 0 6px var(--green)}
+  .wrap{max-width:880px;width:100%;margin:0 auto;padding:18px 22px;flex:1;display:flex;flex-direction:column}
+  h1{font-family:var(--disp);font-size:20px;margin-bottom:4px}h1 em{color:var(--green);font-style:normal}
+  .sub{color:var(--dim);font-size:11px;margin-bottom:16px}
+  #log{flex:1;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:16px;overflow-y:auto;min-height:340px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:84%;padding:11px 14px;border-radius:6px;white-space:pre-wrap;line-height:1.55;font-size:12.5px}
+  .me{align-self:flex-end;border:1px solid var(--purple);color:var(--ink);background:rgba(153,69,255,.08)}
+  .ai{align-self:flex-start;border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+  .ai .who{font-size:8px;letter-spacing:2px;color:var(--green);text-transform:uppercase;display:block;margin-bottom:4px}
+  .row{display:flex;gap:8px;margin-top:14px}
+  input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:12px;border-radius:3px;font-family:var(--mono);font-size:13px}
+  input:focus{border-color:var(--purple);outline:none}
+  .btn{padding:12px 18px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;background:transparent;cursor:pointer;transition:background .15s,color .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .hint{color:var(--dim2);font-size:10px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="nav">
+  <div class="brand">YABBAI<b>.</b>AI</div>
+  <span class="chip"><span class="dot"></span>anthropic · claude sonnet</span>
+</div>
+<div class="wrap">
+  <h1>The <em>routed brain</em>.</h1>
+  <div class="sub">Anthropic → OpenRouter → Ollama. One proxy, the clan never goes dark. <a href="/hub/index.html">← back to hub</a></div>
+  <div id="log">
+    <div class="msg ai"><span class="who">YABBAI</span>I'm the network's brain. Ask me about leads, copy, product audits, diagnostics or code.</div>
+  </div>
+  <div class="row">
+    <input id="inp" placeholder="Ask YABBAI…" data-testid="ai-chat-input" autocomplete="off">
+    <button class="btn" id="send" data-testid="ai-chat-send">Send</button>
+  </div>
+  <div class="hint">Powered by the Emergent Universal LLM key · streaming responses.</div>
+</div>
+<script>
+const API = window.location.origin + '/api/ai';
+const log = document.getElementById('log');
+const inp = document.getElementById('inp');
+const send = document.getElementById('send');
+function add(cls, text, who){
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls;
+  if(who){ const w=document.createElement('span'); w.className='who'; w.textContent=who; d.appendChild(w); }
+  const t=document.createElement('span'); t.textContent=text; d.appendChild(t);
+  log.appendChild(d); log.scrollTop = log.scrollHeight; return t;
+}
+async function ask(){
+  const q = inp.value.trim(); if(!q) return;
+  inp.value=''; add('me', q);
+  const target = add('ai','', 'YABBAI');
+  send.disabled = true;
+  try{
+    const r = await fetch(API+'/chat/stream', {method:'POST',headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({message:q, session_id:'ai-console'})});
+    const reader = r.body.getReader(); const dec = new TextDecoder();
+    while(true){ const {done,value} = await reader.read(); if(done) break;
+      target.textContent += dec.decode(value,{stream:true}); log.scrollTop = log.scrollHeight; }
+  }catch(e){ target.textContent = 'Error reaching the brain: ' + e; }
+  send.disabled = false; inp.focus();
+}
+send.onclick = ask;
+inp.addEventListener('keydown', e => { if(e.key==='Enter') ask(); });
+inp.focus();
+</script>
+</body>
+</html>

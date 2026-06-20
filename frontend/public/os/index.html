@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI REALM OS — one realm, every surface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#071021;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;
+    --ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;--disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.6}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  input,select{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:9px 11px;border-radius:3px;font-size:12px}
+  .btn{padding:10px 18px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:10.5px;
+    letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;transition:all .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .btn.green{border-color:var(--green);color:var(--green)} .btn.green:hover{background:var(--green);color:#021}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px 60px}
+  .nav{display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}
+  .brand b{color:var(--purple)}
+  .brand small{display:block;font-weight:400;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:2px}
+  .nav .right{margin-left:auto;display:flex;gap:8px}
+  .eyebrow{font-size:9.5px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin:30px 0 8px;font-weight:700}
+  h2{font-family:var(--disp);font-size:17px;font-weight:600;margin-bottom:14px}
+  /* map */
+  .mapbox{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:10px}
+  svg.map{width:100%;height:auto;display:block}
+  .mnode{fill:var(--panel2);stroke:var(--purple);stroke-width:1.4}
+  .mnode.brain{fill:var(--purple);filter:drop-shadow(0 0 12px rgba(153,69,255,.7))}
+  .mlab{font-family:var(--mono);font-size:9px;fill:var(--ink);text-anchor:middle;letter-spacing:1px;font-weight:700}
+  .msub{font-size:7.5px;fill:var(--dim);text-anchor:middle}
+  .mcount{font-family:var(--disp);font-size:11px;fill:var(--green);text-anchor:middle;font-weight:600}
+  .medge{stroke:rgba(153,69,255,.35);stroke-width:1.2;fill:none;marker-end:url(#arr)}
+  .pkt{fill:var(--green)}
+  @media (prefers-reduced-motion:reduce){.pkt animateMotion{display:none}}
+  .maplegend{font-size:10px;color:var(--dim2);padding:8px 6px 2px;line-height:1.7}
+  .maplegend b{color:var(--green);font-weight:500}
+  /* launcher */
+  .launch{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .lcard{border:1px solid var(--line);background:var(--panel);padding:18px;border-radius:4px;display:block;text-decoration:none;color:inherit;transition:border-color .15s}
+  .lcard:hover{border-color:var(--purple)}
+  .lcard h3{font-family:var(--disp);font-size:12px;letter-spacing:1px;margin-bottom:6px}
+  .lcard h3 i{font-style:normal;color:var(--purple)}
+  .lcard p{font-size:11px;color:var(--dim)}
+  .lcard .who{font-size:9px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-top:10px}
+  /* forge + stream */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .box{border:1px solid var(--line);background:var(--panel);padding:18px;border-radius:4px}
+  .box h3{font-family:var(--disp);font-size:11px;letter-spacing:1.5px;margin-bottom:12px}
+  .formrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .formrow select,.formrow input{flex:1;min-width:140px}
+  pre.snippet{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:12px;
+    font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-all;color:var(--green);margin-top:10px}
+  .wlist .w{border-bottom:1px solid rgba(153,69,255,.08);padding:8px 0;font-size:11.5px}
+  .wlist .w b{color:var(--ink)} .wlist .w span{color:var(--dim2);font-size:10px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:8px;border-bottom:1px solid rgba(153,69,255,.07);font-size:11.5px;vertical-align:top}
+  .st{font-size:9.5px;letter-spacing:1px;text-transform:uppercase}
+  .st.new{color:var(--amber)} .st.replied{color:var(--purple)} .st.booked{color:var(--green)} .st.closed{color:var(--dim2)}
+  .empty{padding:26px;text-align:center;color:var(--dim2);font-size:11.5px;border:1px dashed var(--line);border-radius:3px}
+  .gatewrap{min-height:80vh;display:flex;align-items:center;justify-content:center}
+  .gate{border:1px solid var(--line);background:var(--panel);padding:34px;max-width:420px;width:100%;border-radius:4px}
+  .gate h1{font-family:var(--disp);font-size:15px;margin-bottom:8px}
+  .gate p{font-size:11.5px;color:var(--dim);margin-bottom:14px}
+  .gate input{width:100%;margin-bottom:10px}
+  .hint{font-size:10px;color:var(--dim2)}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--panel);border:1px solid var(--green);color:var(--green);
+    padding:11px 16px;font-size:11px;border-radius:3px;display:none;z-index:10}
+  @media(max-width:860px){.launch{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ================= CONFIG ================= */
+const SUPABASE_URL      = 'PASTE_YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+const MISSION_CONTROL_URL = 'PASTE_MISSION_CONTROL_URL';   // app/index.html deploy
+const PORTAL_URL          = 'PASTE_REALM_PORTAL_URL';      // portal/index.html deploy
+const WIDGET_SRC_URL      = 'PASTE_WIDGET_JS_URL';         // hosted yabbai-connect.js
+const INTAKE_ENDPOINT     = SUPABASE_URL.startsWith('PASTE') ? '' : SUPABASE_URL + '/functions/v1/realm-intake';
+
+const $ = s => document.querySelector(s);
+const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast = m => { const t=$('#toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',2800); };
+
+if (SUPABASE_URL.startsWith('PASTE')) {
+  document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
+    <h1>YABBAI <b style="color:var(--purple)">//</b> REALM OS</h1>
+    <p>Config needed at the top of this file: Supabase URL + anon key, your two app URLs, and the hosted widget JS URL. Steps in README_OS.md.</p></div></div>`;
+  throw new Error('config');
+}
+const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function ensureAuth(){
+  const { data:{ session } } = await supa.auth.getSession();
+  if (session) return session;
+  document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
+    <h1>YABBAI <b style="color:var(--purple)">//</b> REALM OS</h1>
+    <p>Director sign-in. This shell shows the whole realm breathing — and forges the widgets your clients embed.</p>
+    <input id="em" type="email" placeholder="director@yabbai.network">
+    <button class="btn" id="go" style="width:100%">Send magic link</button>
+    <p class="hint" id="msg" style="margin-top:8px"></p></div></div>`;
+  $('#go').onclick = async ()=>{
+    const email=$('#em').value.trim(); if(!email) return;
+    const { error } = await supa.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href }});
+    $('#msg').textContent = error ? error.message : 'Link sent — check your inbox.';
+  };
+  return new Promise(res=>supa.auth.onAuthStateChange((_e,s)=>{ if(s) res(s); }));
+}
+
+const S = { counts:{enq:0,enqToday:0,leads:0,clients:0,mrr:0,cycles:0,fleet:0,approvals:0,ledger:0}, clients:[], widgets:[], enquiries:[] };
+
+async function loadAll(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const [enq, enqT, leads, money, cyc, fleet, appr, ledg, cl, wg, eq] = await Promise.all([
+    supa.from('enquiries').select('*',{count:'exact',head:true}),
+    supa.from('enquiries').select('*',{count:'exact',head:true}).gte('created_at', today.toISOString()),
+    supa.from('leads').select('*',{count:'exact',head:true}).neq('stage','Dead'),
+    supa.from('money_view').select('*').single(),
+    supa.from('cycles').select('*',{count:'exact',head:true}),
+    supa.from('fleet_updates').select('*',{count:'exact',head:true}),
+    supa.from('approvals').select('*',{count:'exact',head:true}).eq('status','pending'),
+    supa.from('value_events').select('*',{count:'exact',head:true}),
+    supa.from('clients').select('id,biz').order('created_at',{ascending:false}),
+    supa.from('widgets').select('*').order('created_at',{ascending:false}),
+    supa.from('enquiries').select('*').order('created_at',{ascending:false}).limit(12),
+  ]);
+  S.counts = { enq:enq.count||0, enqToday:enqT.count||0, leads:leads.count||0,
+    clients:money.data?.active_clients||0, mrr:money.data?.mrr||0,
+    cycles:cyc.count||0, fleet:fleet.count||0, approvals:appr.count||0, ledger:ledg.count||0 };
+  S.clients=cl.data||[]; S.widgets=wg.data||[]; S.enquiries=eq.data||[];
+  render();
+}
+
+function shell(){
+  document.getElementById('app').innerHTML = `
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">YABBAI <b>//</b> REALM OS<small>ONE REALM · EVERY SURFACE · DIRECTOR VIEW</small></div>
+      <div class="right">
+        <a href="${esc(MISSION_CONTROL_URL)}" target="_blank" rel="noopener"><button class="btn">Mission Control</button></a>
+        <a href="${esc(PORTAL_URL)}" target="_blank" rel="noopener"><button class="btn green">Client Portal</button></a>
+        <button class="btn" id="outBtn" style="border-color:var(--dim2);color:var(--dim)">Sign out</button>
+      </div>
+    </nav>
+
+    <div class="eyebrow">The realm, breathing</div>
+    <h2>Live ecosystem map</h2>
+    <div class="mapbox">
+      <svg class="map" viewBox="0 0 760 320" role="img" aria-label="Live map: end users feed the widget, the widget feeds clients and the ledger, clients feed the director, the director feeds the fleet, the fleet lifts every client. The brain powers all of it.">
+        <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="rgba(153,69,255,.5)"/></marker></defs>
+        <path class="medge" d="M120,160 C160,90 200,80 240,80"/>
+        <path class="medge" d="M310,80 C380,80 440,80 500,80"/>
+        <path class="medge" d="M300,108 C300,160 300,200 300,228"/>
+        <path class="medge" d="M560,108 C600,130 630,145 648,155"/>
+        <path class="medge" d="M650,190 C600,225 560,238 520,242"/>
+        <path class="medge" d="M450,250 C400,255 360,255 335,252"/>
+        <path class="medge" d="M270,238 C200,225 150,200 122,178"/>
+        <circle class="pkt" r="3"><animateMotion dur="5s" repeatCount="indefinite" path="M120,160 C160,90 200,80 240,80"/></circle>
+        <circle class="pkt" r="3"><animateMotion dur="6s" repeatCount="indefinite" path="M310,80 C380,80 440,80 500,80"/></circle>
+        <circle class="pkt" r="3"><animateMotion dur="7s" repeatCount="indefinite" path="M650,190 C600,225 560,238 520,242"/></circle>
+
+        <g transform="translate(80,160)"><circle class="mnode" r="40"/>
+          <text class="mlab" y="-6">END USERS</text><text class="msub" y="6">your clients' customers</text>
+          <text class="mcount" y="20" id="cEU">—</text></g>
+        <g transform="translate(275,80)"><circle class="mnode" r="38"/>
+          <text class="mlab" y="-6">WIDGET</text><text class="msub" y="6">enquiries today</text>
+          <text class="mcount" y="20" id="cWID">0</text></g>
+        <g transform="translate(540,80)"><circle class="mnode" r="38"/>
+          <text class="mlab" y="-6">CLIENTS</text><text class="msub" y="6">active · MRR</text>
+          <text class="mcount" y="20" id="cCLI">0</text></g>
+        <g transform="translate(680,172)"><circle class="mnode" r="36"/>
+          <text class="mlab" y="-6">DIRECTOR</text><text class="msub" y="6">awaiting your call</text>
+          <text class="mcount" y="20" id="cDIR">0</text></g>
+        <g transform="translate(485,248)"><circle class="mnode" r="34"/>
+          <text class="mlab" y="-6">FLEET</text><text class="msub" y="6">upgrades shipped</text>
+          <text class="mcount" y="18" id="cFLE">0</text></g>
+        <g transform="translate(300,250)"><circle class="mnode" r="34"/>
+          <text class="mlab" y="-6">LEDGER</text><text class="msub" y="6">value events</text>
+          <text class="mcount" y="18" id="cLED">0</text></g>
+        <g transform="translate(395,166)"><circle class="mnode brain" r="30"/>
+          <text class="mlab" y="-4" fill="#fff">BRAIN</text><text class="msub" y="8" fill="rgba(255,255,255,.8)">cycles run</text>
+          <text class="mcount" y="20" id="cBRA" fill="#fff">0</text></g>
+      </svg>
+      <div class="maplegend">Every edge is real data moving: enquiry → lead + <b>ledger event (automatic)</b> → client value → your retention → fleet upgrade → every client lifted. One brain (ai-proxy) powers the widget replies, the scoping, and the cycle agents. Upgrade the model once, every surface gets smarter the same minute.</div>
+    </div>
+
+    <div class="eyebrow">Surfaces</div>
+    <h2>One realm, four doors</h2>
+    <div class="launch">
+      <a class="lcard" href="${esc(MISSION_CONTROL_URL)}" target="_blank" rel="noopener">
+        <h3><i>01</i> MISSION CONTROL</h3><p>The cockpit. Pipeline, cycles, the three gates, money. Where you decide.</p>
+        <div class="who">Director / Admin</div></a>
+      <a class="lcard" href="${esc(PORTAL_URL)}" target="_blank" rel="noopener">
+        <h3><i>02</i> REALM PORTAL</h3><p>The front door. Briefs in plain words → catalog-bound scope → pay → build. Mutual Ledger + fleet feed.</p>
+        <div class="who">Clients</div></a>
+      <div class="lcard">
+        <h3><i>03</i> CONNECT WIDGET</h3><p>The street level. Lives on client websites; answers their customers instantly and writes the ledger by itself. Forge one below.</p>
+        <div class="who">End users</div></div>
+    </div>
+
+    <div class="eyebrow">Widget forge</div>
+    <h2>Arm a client's website</h2>
+    <div class="grid2">
+      <div class="box">
+        <h3>FORGE A WIDGET</h3>
+        <div class="formrow">
+          <select id="fClient"><option value="">Pick a client…</option></select>
+          <input id="fBook" placeholder="Booking URL (optional)">
+        </div>
+        <button class="btn green" id="forgeBtn">Forge widget</button>
+        <div id="snippetBox"></div>
+        <div class="wlist" id="wList" style="margin-top:14px"></div>
+      </div>
+      <div class="box">
+        <h3>ENQUIRY STREAM <span class="hint" style="font-weight:400">(live)</span></h3>
+        <div id="enqBox"></div>
+      </div>
+    </div>
+  </div>`;
+  $('#outBtn').onclick = async ()=>{ await supa.auth.signOut(); location.reload(); };
+  $('#forgeBtn').onclick = forge;
+}
+
+async function forge(){
+  const cid = $('#fClient').value;
+  if(!cid){ toast('Pick a client first.'); return; }
+  const { data, error } = await supa.rpc('create_widget', { p_client: cid, p_booking: $('#fBook').value.trim()||null });
+  if (error){ toast(error.message); return; }
+  toast('Widget forged — embed snippet below.');
+  showSnippet(data);
+  loadAll();
+}
+function showSnippet(w){
+  $('#snippetBox').innerHTML = `<pre class="snippet">&lt;script src="${esc(WIDGET_SRC_URL)}"
+  data-key="${esc(w.key)}"
+  data-endpoint="${esc(INTAKE_ENDPOINT)}"
+  data-biz="${esc(w.biz)}"
+  data-accent="#9945FF" defer&gt;&lt;/script&gt;</pre>
+  <p class="hint" style="margin-top:6px">Paste before &lt;/body&gt; on the client's site. Enquiries + ledger events start flowing immediately.</p>`;
+}
+
+function render(){
+  const c=S.counts;
+  $('#cEU').textContent = c.enq ? c.enq + ' all-time' : '—';
+  $('#cWID').textContent = c.enqToday;
+  $('#cCLI').textContent = c.clients + ' · ' + AUD(c.mrr);
+  $('#cDIR').textContent = c.approvals;
+  $('#cFLE').textContent = c.fleet;
+  $('#cLED').textContent = c.ledger;
+  $('#cBRA').textContent = c.cycles;
+
+  $('#fClient').innerHTML = '<option value="">Pick a client…</option>' +
+    S.clients.map(x=>`<option value="${x.id}">${esc(x.biz)}</option>`).join('');
+
+  $('#wList').innerHTML = S.widgets.length
+    ? S.widgets.map(w=>`<div class="w"><b>${esc(w.biz)}</b> <span>· ${esc(w.key)} · ${w.active?'active':'off'}</span>
+        <button class="btn" style="float:right;padding:4px 10px;font-size:9px" onclick='window.__snip(${JSON.stringify(w).replace(/'/g,"&#39;")})'>snippet</button></div>`).join('')
+    : `<div class="empty">No widgets yet. Forge the first one — it starts feeding the ledger the moment it's embedded.</div>`;
+  window.__snip = showSnippet;
+
+  $('#enqBox').innerHTML = S.enquiries.length
+    ? `<table><thead><tr><th>From</th><th>Message</th><th>Status</th></tr></thead><tbody>` +
+      S.enquiries.map(e=>`<tr>
+        <td><b>${esc(e.name||'—')}</b><br><span class="hint">${esc(e.contact||'')}</span></td>
+        <td style="max-width:240px">${esc((e.message||'').slice(0,90))}${(e.message||'').length>90?'…':''}
+          ${e.want_booking?'<br><span class="hint" style="color:var(--green)">wants to book</span>':''}</td>
+        <td><span class="st ${esc(e.status)}">${esc(e.status)}</span></td></tr>`).join('') + `</tbody></table>`
+    : `<div class="empty">No enquiries yet. Embed a widget — this stream fills itself.</div>`;
+}
+
+await ensureAuth();
+shell();
+await loadAll();
+supa.channel('os')
+  .on('postgres_changes',{event:'*',schema:'public',table:'enquiries'},()=>{ toast('New enquiry just landed.'); loadAll(); })
+  .on('postgres_changes',{event:'*',schema:'public',table:'approvals'},()=>loadAll())
+  .subscribe();
+</script>
+</body>
+</html>

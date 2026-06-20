@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI REALM — Tell us what you need. Watch it get built.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;
+    --ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;--disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:14px;line-height:1.65}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  input,textarea{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:11px 13px;border-radius:3px;font-size:13px;width:100%}
+  textarea{min-height:110px;resize:vertical}
+  .btn{padding:12px 22px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:11.5px;
+    letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;transition:all .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .btn.primary{background:var(--purple);color:#fff}
+  .btn.primary:hover{box-shadow:0 0 20px rgba(153,69,255,.5)}
+  .btn.green{border-color:var(--green);color:var(--green)}
+  .btn.green:hover{background:var(--green);color:#021}
+  .btn.quiet{border-color:var(--dim2);color:var(--dim);font-size:10px;padding:8px 14px}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+  /* nav */
+  .nav{display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}
+  .brand b{color:var(--purple)}
+  .navlinks{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+  .navlink{padding:9px 13px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);border-radius:3px}
+  .navlink.on{color:var(--ink);background:rgba(153,69,255,.12)}
+  /* hero + realm orbit */
+  .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:34px;align-items:center;padding:54px 0 40px}
+  .hero h1{font-family:var(--disp);font-weight:800;font-size:clamp(24px,4vw,38px);line-height:1.18;letter-spacing:-.5px}
+  .hero h1 em{color:var(--green);font-style:normal}
+  .hero p{color:var(--dim);margin:18px 0 26px;max-width:46ch}
+  .hero .sub{font-size:11px;color:var(--dim2);margin-top:14px;line-height:1.8}
+  .orbit{width:100%;height:auto}
+  .ocore{fill:var(--purple);filter:drop-shadow(0 0 14px rgba(153,69,255,.7))}
+  .oring{fill:none;stroke:var(--line);stroke-width:1}
+  .onode{fill:var(--panel2);stroke:var(--purple);stroke-width:1.5}
+  .olabel{font-family:var(--mono);font-size:9px;fill:var(--ink);text-anchor:middle;letter-spacing:1px}
+  .osub{font-size:7px;fill:var(--dim);text-anchor:middle}
+  .packet{fill:var(--green)}
+  @keyframes orbitA{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  @keyframes orbitB{from{transform:rotate(360deg)}to{transform:rotate(0deg)}}
+  .spinA{transform-origin:210px 190px;animation:orbitA 26s linear infinite}
+  .spinB{transform-origin:210px 190px;animation:orbitB 38s linear infinite}
+  @media (prefers-reduced-motion: reduce){.spinA,.spinB{animation:none}}
+  /* loop strip */
+  .loopstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:8px 0 46px}
+  .loopcard{border:1px solid var(--line);background:var(--panel);padding:18px;border-radius:3px}
+  .loopcard h3{font-family:var(--disp);font-size:11px;letter-spacing:1.5px;margin-bottom:8px}
+  .loopcard h3 i{font-style:normal;color:var(--green)}
+  .loopcard p{font-size:11.5px;color:var(--dim)}
+  /* sections */
+  section.block{padding:34px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-size:9.5px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:10px;font-weight:700}
+  h2.title{font-family:var(--disp);font-size:19px;font-weight:600;margin-bottom:18px}
+  /* wizard */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+  .chip{font-size:10.5px;padding:7px 12px;border:1px solid var(--line);border-radius:99px;color:var(--dim)}
+  .chip:hover{border-color:var(--green);color:var(--green)}
+  .scopecard{border:1px solid var(--purple);background:linear-gradient(180deg,rgba(153,69,255,.07),transparent);
+    padding:22px;border-radius:3px;margin-top:18px}
+  .scopecard h3{font-family:var(--disp);font-size:13px;margin-bottom:10px}
+  .scopecard ul{list-style:none;margin:10px 0}
+  .scopecard li{padding:4px 0;font-size:12.5px;color:var(--dim)}
+  .scopecard li::before{content:'→ ';color:var(--green)}
+  .oos li::before{content:'✕ ';color:var(--red)}
+  .pricegrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+  .pricebox{border:1px solid var(--line);background:var(--panel);padding:14px;border-radius:3px}
+  .pricebox .big{font-family:var(--disp);font-size:20px;color:var(--green)}
+  .pricebox .cap{font-size:9px;letter-spacing:2px;color:var(--dim2);text-transform:uppercase}
+  .honest{font-size:10.5px;color:var(--dim2);border-left:2px solid var(--amber);padding-left:12px;margin:14px 0;line-height:1.7}
+  /* dashboard */
+  .ledger{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+  .ledger .cell{border:1px solid var(--line);background:var(--panel);padding:16px;border-radius:3px;text-align:center}
+  .ledger .v{font-family:var(--disp);font-size:20px;color:var(--green)}
+  .ledger .l{font-size:9px;letter-spacing:2px;color:var(--dim2);text-transform:uppercase;margin-top:4px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:10px;border-bottom:1px solid rgba(153,69,255,.07);font-size:12px;vertical-align:top}
+  .status{font-size:10px;letter-spacing:1px;text-transform:uppercase}
+  .status.Live,.status.Shipped{color:var(--green)} .status.Building,.status.Paid{color:var(--purple)}
+  .status.Scoped,.status.Quoted{color:var(--amber)} .status.Draft{color:var(--dim2)}
+  .updates .u{border:1px solid var(--line);background:var(--panel);padding:13px 15px;border-radius:3px;margin-bottom:9px}
+  .updates .u b{display:block;font-size:12px}
+  .updates .u span{font-size:11px;color:var(--dim)}
+  .updates .u .when{font-size:9px;color:var(--dim2);float:right}
+  .empty{padding:36px;text-align:center;color:var(--dim2);font-size:12px;border:1px dashed var(--line);border-radius:3px}
+  .gatewrap{min-height:70vh;display:flex;align-items:center;justify-content:center}
+  .gate{border:1px solid var(--line);background:var(--panel);padding:34px;max-width:420px;width:100%;border-radius:3px}
+  .gate h1{font-family:var(--disp);font-size:15px;margin-bottom:8px}
+  .gate p{font-size:11.5px;color:var(--dim);margin-bottom:16px}
+  .gate input{margin-bottom:10px}
+  .hint{font-size:10px;color:var(--dim2)}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--panel);border:1px solid var(--green);color:var(--green);
+    padding:11px 17px;font-size:11px;border-radius:3px;display:none;z-index:10}
+  .view{display:none}.view.on{display:block}
+  footer{padding:30px 0 48px;border-top:1px solid var(--line);margin-top:40px;font-size:10px;color:var(--dim2);line-height:1.9}
+  @media (max-width:840px){.hero{grid-template-columns:1fr}.loopstrip{grid-template-columns:1fr}
+    .ledger{grid-template-columns:1fr 1fr}.pricegrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ============================================================
+   CONFIG — same Supabase project as Mission Control.
+   ============================================================ */
+const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+const DIRECTOR_USER_ID = 'PASTE_DIRECTOR_AUTH_USER_ID';      // you — every order routes to your realm
+const PAYLINKS = {                                            // Stripe Payment Links (Products → share link)
+  'Starter':  'PASTE_STARTER_PAYMENT_LINK',
+  'Growth':   'PASTE_GROWTH_PAYMENT_LINK',
+  'Full Ops': 'PASTE_FULLOPS_PAYMENT_LINK',
+};
+const BOOK_CALL_URL = 'PASTE_BOOKING_LINK';                   // fallback for needs_human_call
+
+const $ = s => document.querySelector(s);
+const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast = m => { const t=$('#toast'); t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',2800); };
+
+if (SUPABASE_URL.startsWith('PASTE')) {
+  document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
+    <h1>YABBAI <b style="color:var(--purple)">//</b> REALM</h1>
+    <p>Config needed: paste SUPABASE_URL, ANON KEY, DIRECTOR_USER_ID, your three Stripe Payment Links, and a booking link at the top of this file. Steps in README_PORTAL.md.</p></div></div>`;
+  throw new Error('config');
+}
+const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------------- auth (clients sign in the same easy way) ---------------- */
+async function ensureAuth(){
+  const { data:{ session } } = await supa.auth.getSession();
+  if (session) return session;
+  document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
+    <h1>YABBAI <b style="color:var(--purple)">//</b> REALM</h1>
+    <p>Sign in to order a build, track progress, and see exactly what your system earns you. Magic link — no password.</p>
+    <input id="em" type="email" placeholder="you@business.com.au" autocomplete="email">
+    <button class="btn primary" id="go" style="width:100%">Send sign-in link</button>
+    <p class="hint" id="msg" style="margin-top:10px"></p></div></div>`;
+  $('#go').onclick = async () => {
+    const email = $('#em').value.trim(); if(!email) return;
+    const { error } = await supa.auth.signInWithOtp({ email, options:{ emailRedirectTo: location.href }});
+    $('#msg').textContent = error ? error.message : 'Link sent — check your inbox, then come back here.';
+  };
+  return new Promise(res => supa.auth.onAuthStateChange((_e,s)=>{ if(s) res(s); }));
+}
+
+/* ---------------- state ---------------- */
+const S = { orders:[], updates:[], refs:[], value:{hours_saved:0,leads_generated:0,bookings:0,revenue_assisted:0}, scoping:false, draftId:null };
+
+async function loadAll(){
+  const [o,u,r,v] = await Promise.all([
+    supa.from('orders').select('*').order('created_at',{ascending:false}),
+    supa.from('fleet_updates').select('*').order('shipped_at',{ascending:false}).limit(12),
+    supa.from('referrals').select('*').order('created_at',{ascending:false}),
+    supa.from('my_value_view').select('*').single(),
+  ]);
+  S.orders=o.data||[]; S.updates=u.data||[]; S.refs=r.data||[]; S.value=v.data||S.value;
+  render();
+}
+
+/* ---------------- shell ---------------- */
+function shell(){
+  document.getElementById('app').innerHTML = `
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">YABBAI <b>//</b> REALM</div>
+      <div class="navlinks">
+        <button class="navlink on" data-v="home">Order a build</button>
+        <button class="navlink" data-v="dash">My builds &amp; ledger</button>
+        <button class="navlink" data-v="refer">Refer &amp; earn</button>
+        <button class="navlink" id="outBtn">Sign out</button>
+      </div>
+    </nav>
+
+    <!-- ================= HOME / ORDER ================= -->
+    <div class="view on" id="v-home">
+      <div class="hero">
+        <div>
+          <h1>One realm. <em>Everyone</em> leaves with more than they brought.</h1>
+          <p>Describe what your business needs in your own words. We map it to a fixed-price build, ship it fast, then keep upgrading it for as long as you stay — and you watch exactly what it earns you, on the same ledger we see.</p>
+          <button class="btn primary" id="startBtn">Tell us what you need</button>
+          <p class="sub">Fixed catalog pricing — the AI scopes, it never invents a number. Nothing is binding until you've paid and we've confirmed scope on a call if needed.</p>
+        </div>
+        <svg class="orbit" viewBox="0 0 420 380" role="img" aria-label="The YABBAI realm: end users, clients and the director orbiting one core, value flowing between all three">
+          <circle class="oring" cx="210" cy="190" r="78"/>
+          <circle class="oring" cx="210" cy="190" r="138"/>
+          <circle class="ocore" cx="210" cy="190" r="26"/>
+          <text class="olabel" x="210" y="187" fill="#fff">YABBAI</text>
+          <text class="osub" x="210" y="199">the engine</text>
+          <g class="spinA">
+            <g transform="translate(210,112)"><circle class="onode" r="30"/>
+              <text class="olabel" y="-2">CLIENTS</text><text class="osub" y="9">shipped + upgraded</text></g>
+            <g transform="translate(210,268)"><circle class="onode" r="30"/>
+              <text class="olabel" y="-2">DIRECTOR</text><text class="osub" y="9">grows the realm</text></g>
+          </g>
+          <g class="spinB">
+            <g transform="translate(72,190)"><circle class="onode" r="30"/>
+              <text class="olabel" y="-2">END USERS</text><text class="osub" y="9">faster, easier</text></g>
+            <g transform="translate(348,190)"><circle class="onode" r="30"/>
+              <text class="olabel" y="-2">FLEET</text><text class="osub" y="9">one build → all</text></g>
+          </g>
+          <circle class="packet" r="3"><animateMotion dur="6s" repeatCount="indefinite" path="M210,138 A52,52 0 1,1 209,138"/></circle>
+          <circle class="packet" r="3"><animateMotion dur="8s" repeatCount="indefinite" path="M210,52 A138,138 0 1,0 211,52"/></circle>
+        </svg>
+      </div>
+
+      <div class="loopstrip">
+        <div class="loopcard"><h3><i>01</i> · YOUR CUSTOMERS WIN</h3><p>Instant replies, easy booking, nothing falls through. The build is judged by how it feels on their end, not ours.</p></div>
+        <div class="loopcard"><h3><i>02</i> · YOU SEE THE LEDGER WE SEE</h3><p>Hours saved, leads generated, bookings made — logged against what you pay. If the value isn't there, it's visible, and fixing it is on us.</p></div>
+        <div class="loopcard"><h3><i>03</i> · ONE BUILD LIFTS THE FLEET</h3><p>Every improvement we ship for any client rolls out to every retainer client. Our growth literally upgrades your system.</p></div>
+      </div>
+
+      <section class="block" id="wizard" style="display:none">
+        <div class="eyebrow">Step 1 — your words, not ours</div>
+        <h2 class="title">What should stop being manual?</h2>
+        <textarea id="brief" placeholder="e.g. I run a physio clinic in Box Hill. Enquiries come through Facebook and the website but we reply a day late and lose people. Booking is all phone calls. I want enquiries answered instantly and people booking themselves in."></textarea>
+        <div class="chips" id="chips"></div>
+        <button class="btn green" id="scopeBtn">Scope my build</button>
+        <span class="hint" id="scopeHint" style="margin-left:12px"></span>
+        <div id="scopeOut"></div>
+      </section>
+    </div>
+
+    <!-- ================= DASHBOARD ================= -->
+    <div class="view" id="v-dash">
+      <section class="block">
+        <div class="eyebrow">The mutual ledger</div>
+        <h2 class="title">What your systems have earned you</h2>
+        <div class="ledger">
+          <div class="cell"><div class="v" id="lHours">0</div><div class="l">Hours saved</div></div>
+          <div class="cell"><div class="v" id="lLeads">0</div><div class="l">Leads generated</div></div>
+          <div class="cell"><div class="v" id="lBook">0</div><div class="l">Bookings made</div></div>
+          <div class="cell"><div class="v" id="lRev">$0</div><div class="l">Revenue assisted</div></div>
+        </div>
+        <p class="hint">Same numbers we see. Logged from your live systems and monthly reviews — never estimates dressed as results.</p>
+      </section>
+      <section class="block">
+        <div class="eyebrow">Your builds</div>
+        <h2 class="title">Orders &amp; progress</h2>
+        <div id="ordersBox"></div>
+      </section>
+      <section class="block">
+        <div class="eyebrow">Fleet upgrades — included on every retainer</div>
+        <h2 class="title">What we shipped to everyone lately</h2>
+        <div class="updates" id="updatesBox"></div>
+      </section>
+    </div>
+
+    <!-- ================= REFER ================= -->
+    <div class="view" id="v-refer">
+      <section class="block">
+        <div class="eyebrow">Refer &amp; earn</div>
+        <h2 class="title">Your growth funds your discount</h2>
+        <p style="color:var(--dim);max-width:60ch;font-size:12.5px;margin-bottom:16px">Send your code to another business owner. When they buy a build, a credit lands on your next retainer invoice — client growth flows back to clients, not just to us.</p>
+        <button class="btn" id="refBtn">Create my referral code</button>
+        <div id="refBox" style="margin-top:16px"></div>
+      </section>
+    </div>
+
+    <footer>
+      YABBAI REALM · BASHAM Automations · Melbourne. Fixed catalog pricing in AUD; GST applies. Scoped quotes are non-binding until paid and confirmed. We never promise revenue outcomes — we promise working systems and a ledger you can check. ABN on invoices.
+    </footer>
+  </div>`;
+
+  document.querySelectorAll('.navlink[data-v]').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.navlink').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); $('#v-'+b.dataset.v).classList.add('on');
+  });
+  $('#outBtn').onclick = async ()=>{ await supa.auth.signOut(); location.reload(); };
+  $('#startBtn').onclick = ()=>{ $('#wizard').style.display='block'; $('#wizard').scrollIntoView({behavior:'smooth'}); };
+
+  const CHIPS = ['Answer enquiries instantly','Online booking','Chase reviews automatically','Stop leads going cold','Invoicing on autopilot','A simple website that converts'];
+  $('#chips').innerHTML = CHIPS.map(c=>`<button class="chip">${c}</button>`).join('');
+  document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+    const t=$('#brief'); t.value = (t.value? t.value+' ' : '') + c + '.'; t.focus();
+  });
+  $('#scopeBtn').onclick = scopeBrief;
+}
+
+/* ---------------- the wizard ---------------- */
+async function scopeBrief(){
+  const brief = $('#brief').value.trim();
+  if (brief.length < 20) { toast('Give us a sentence or two — your words are the spec.'); return; }
+  if (S.scoping) return; S.scoping = true;
+  $('#scopeBtn').disabled = true; $('#scopeHint').textContent = 'Scoping against the catalog…';
+
+  // 1) create the order row (Draft)
+  const { data: order, error } = await supa.from('orders')
+    .insert({ brief, director: DIRECTOR_USER_ID }).select().single();
+  if (error) { toast(error.message); S.scoping=false; $('#scopeBtn').disabled=false; return; }
+  S.draftId = order.id;
+
+  // 2) AI maps it onto the fixed catalog (server-side)
+  const { data, error: fe } = await supa.functions.invoke('scope-brief', { body:{ order_id: order.id } });
+  S.scoping = false; $('#scopeBtn').disabled = false; $('#scopeHint').textContent='';
+  if (fe || data?.error) { toast('Scoping failed — try again or book a call.'); return; }
+
+  renderScope(data.scope, data.fee, data.mrr, order.id);
+  loadAll();
+}
+function renderScope(sc, fee, mrr, orderId){
+  const oos = (sc.out_of_scope||[]).length
+    ? `<div class="eyebrow" style="margin-top:14px;color:var(--red)">Not in this package</div>
+       <ul class="oos">${sc.out_of_scope.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>` : '';
+  $('#scopeOut').innerHTML = `
+  <div class="scopecard">
+    <h3>${esc(sc.summary||'Your build plan')}</h3>
+    <div class="eyebrow">You will receive</div>
+    <ul>${(sc.deliverables||[]).map(d=>`<li>${esc(d)}</li>`).join('')}</ul>
+    <div class="eyebrow" style="margin-top:6px">Your customers will feel</div>
+    <p style="font-size:12.5px;color:var(--dim)">${esc(sc.end_user_benefit||'Faster, easier service.')}</p>
+    ${oos}
+    <div class="pricegrid">
+      <div class="pricebox"><div class="big">${AUD(fee)}</div><div class="cap">${esc(sc.package)} build · once · ${esc(sc.timeline||'')}</div></div>
+      <div class="pricebox"><div class="big">${AUD(mrr)}/mo</div><div class="cap">${esc(sc.tier)} retainer · fleet upgrades included · cancel any month</div></div>
+    </div>
+    <div class="honest">Honest bit: this quote is fixed-catalog and non-binding until you pay${sc.needs_human_call?' — and your brief has parts that need a quick human call before we lock scope':''}. We don't promise revenue outcomes; we promise a working system and a ledger you can check.</div>
+    ${ sc.needs_human_call
+      ? `<a href="${esc(BOOK_CALL_URL)}" target="_blank" rel="noopener"><button class="btn primary">Book the scope call</button></a>`
+      : `<button class="btn primary" id="payBtn">Accept &amp; pay — start the build</button>
+         <a href="${esc(BOOK_CALL_URL)}" target="_blank" rel="noopener"><button class="btn quiet" style="margin-left:8px">Prefer a call first?</button></a>` }
+  </div>`;
+  const pb = $('#payBtn');
+  if (pb) pb.onclick = async ()=>{
+    const { error } = await supa.rpc('accept_quote', { p_order: orderId });
+    if (error) { toast(error.message); return; }
+    const link = PAYLINKS[sc.package];
+    if (!link || link.startsWith('PASTE')) { toast('Payment link not configured yet — book a call instead.'); return; }
+    window.open(link + '?client_reference_id=' + orderId, '_blank');
+    toast('Checkout opened. Your build starts the moment payment lands.');
+    loadAll();
+  };
+}
+
+/* ---------------- renderers ---------------- */
+function render(){
+  $('#lHours').textContent = Number(S.value.hours_saved||0).toLocaleString();
+  $('#lLeads').textContent = Number(S.value.leads_generated||0).toLocaleString();
+  $('#lBook').textContent  = Number(S.value.bookings||0).toLocaleString();
+  $('#lRev').textContent   = AUD(S.value.revenue_assisted||0);
+
+  $('#ordersBox').innerHTML = S.orders.length ? `<table><thead><tr>
+    <th>Brief</th><th>Package</th><th>Price</th><th>Status</th></tr></thead><tbody>` +
+    S.orders.map(o=>`<tr>
+      <td style="max-width:380px"><b>${esc((o.brief||'').slice(0,90))}${(o.brief||'').length>90?'…':''}</b></td>
+      <td class="hint">${esc(o.package||'—')}${o.tier?' + '+esc(o.tier):''}</td>
+      <td class="hint">${o.fee?AUD(o.fee):'—'}${o.mrr?' + '+AUD(o.mrr)+'/mo':''}</td>
+      <td><span class="status ${esc(o.status)}">${esc(o.status)}</span></td></tr>`).join('') +
+    `</tbody></table>`
+  : `<div class="empty">No builds yet. Head to “Order a build” and tell us what should stop being manual.</div>`;
+
+  $('#updatesBox').innerHTML = S.updates.length
+    ? S.updates.map(u=>`<div class="u"><span class="when">${new Date(u.shipped_at).toLocaleDateString('en-AU')}</span><b>${esc(u.title)}</b><span>${esc(u.detail||'')}</span></div>`).join('')
+    : `<div class="empty">Fleet upgrades will appear here as we ship them — every retainer client gets every one.</div>`;
+
+  const rb = $('#refBox');
+  rb.innerHTML = S.refs.length
+    ? S.refs.map(r=>`<div class="u" style="border:1px solid var(--line);background:var(--panel);padding:13px 15px;border-radius:3px;margin-bottom:9px">
+        <b style="font-family:var(--disp);letter-spacing:1px">${esc(r.code)}</b>
+        <span class="hint" style="margin-left:12px">${esc(r.status)} · credit ${AUD(r.credit)}</span></div>`).join('')
+    : '';
+}
+$('#refBtn')?.addEventListener; // placeholder (bound after shell)
+
+/* ---------------- boot ---------------- */
+await ensureAuth();
+shell();
+$('#refBtn').onclick = async ()=>{
+  const code = 'YAB-' + Math.random().toString(36).slice(2,7).toUpperCase();
+  const { error } = await supa.from('referrals').insert({ code });
+  if (error) toast(error.message); else { toast('Code created — send it to a business owner you rate.'); loadAll(); }
+};
+await loadAll();
+supa.channel('portal')
+  .on('postgres_changes',{event:'*',schema:'public',table:'orders'},()=>loadAll())
+  .on('postgres_changes',{event:'*',schema:'public',table:'fleet_updates'},()=>loadAll())
+  .subscribe();
+</script>
+</body>
+</html>

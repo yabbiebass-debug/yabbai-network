@@ -1,0 +1,29 @@
+{
+  "summary": "First test pass of YABBAI.NETWORK V2 unified backend + hub. All 17 backend tests pass on the single-port gateway covering all 5 mounted services, kill-switch flow, reconciled income, compliance gate, AI brain (Claude via Emergent Universal LLM key), DeFi paper-only flags, and Ops dashboard. Frontend hub, AI console, and all three Python dashboards (revsys, defisim, opscockpit) load cleanly with zero console / page errors. Kill-switch engage→disengage works end-to-end from the UI through the backend. Safety invariants intact (admin-key auth, kill_switch boolean, reconciled income increases on manual sale, compliance issues raised on guarantee-style claims, custodial=false / real_funds=false on DeFi).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_unified_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Hub kill-switch chip is an inline-onclick span (no data-testid). Functional, but adding data-testid='hub-kill-switch-engage' / 'hub-kill-switch-disengage' would harden future Playwright regressions.",
+    "/app/backend/server.py mounts revenue_system/unified_server.py whose endpoints sit under /api/revenue/api/... (double /api). Functional but slightly awkward URL shape; consider re-prefixing in a follow-up.",
+    "Universal LLM key is read at module import. If EMERGENT_LLM_KEY is rotated, backend will need a supervisor restart — acceptable for now but worth noting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_unified_backend.py"
+  ],
+  "success_rate": { "backend": "100% (17/17)", "frontend": "100% (all targeted flows pass)" },
+  "test_credentials": "Revenue admin header X-Admin-Key: yabbai-director-key (prefilled in revsys and hub).",
+  "seed_data_creation": "Each run of test_manual_sale_increases_real_income inserts one reconciled sale (qa1-<epoch>, $500 gross / $20 fee). This is by design — reconciled income is in-memory.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Next phases will add Supabase surfaces (/app, /os, /floor, /studio, /portal, /vault) and Google/Stripe/PayPal/Phantom settings. Those were explicitly deferred and not tested here. The unified gateway routes everything cleanly under /api/<service> on :8001; hub at /hub/index.html bypasses magic-link auth in preview. Re-use /app/backend/tests/test_unified_backend.py as the regression base.",
+  "rca of the issue": "N/A — no failures."
+}
