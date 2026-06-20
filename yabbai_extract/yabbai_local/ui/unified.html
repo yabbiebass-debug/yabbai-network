@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI — Unified</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{--void:#020814;--void-2:#060e20;--void-3:#0d1a35;--sol-purple:#9945FF;
+--sol-green:#14F195;--amber:#F5A623;--danger:#ef4444;--white:#e8f0ff;--muted:#4a6080;
+--border-glow:rgba(153,69,255,0.35);--font-mono:'JetBrains Mono',monospace;--font-display:'Unbounded',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono);background:var(--void);color:var(--white);height:100vh;
+display:flex;flex-direction:column;overflow:hidden;font-size:13px;
+background-image:radial-gradient(circle at 15% 5%,rgba(153,69,255,0.06),transparent 40%),
+radial-gradient(circle at 85% 95%,rgba(20,241,149,0.05),transparent 40%)}
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;
+border-bottom:1px solid var(--border-glow);background:var(--void-2)}
+.brand{font-family:var(--font-display);font-weight:900;font-size:17px}
+.brand span{color:var(--sol-purple)}
+.badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.badge{font-size:9px;letter-spacing:0.06em;padding:2px 7px;border-radius:3px;
+border:1px solid var(--border-glow);color:var(--sol-green);text-transform:uppercase}
+.badge-model{color:var(--sol-purple)}.badge-warn{color:var(--amber);border-color:var(--amber)}
+.tabs{display:flex;gap:4px;padding:0 18px;background:var(--void-2);border-bottom:1px solid var(--border-glow)}
+.tab{padding:9px 18px;cursor:pointer;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;
+color:var(--muted);border-bottom:2px solid transparent;transition:all .15s}
+.tab:hover{color:var(--white)}
+.tab.active{color:var(--sol-green);border-bottom-color:var(--sol-green)}
+.view{flex:1;overflow:hidden;display:none}
+.view.active{display:flex;flex-direction:column}
+iframe{flex:1;border:none;width:100%;height:100%;background:var(--void)}
+/* generic panels */
+.pad{padding:20px;overflow-y:auto;flex:1}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card{background:var(--void-2);border:1px solid var(--border-glow);border-radius:8px;padding:16px}
+.card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px}
+.card .val{font-family:var(--font-display);font-size:24px}
+.card .sub{font-size:11px;color:var(--muted);margin-top:4px}
+.green{color:var(--sol-green)}.purple{color:var(--sol-purple)}.amber{color:var(--amber)}.red{color:var(--danger)}
+.section-title{font-family:var(--font-display);font-size:13px;text-transform:uppercase;
+letter-spacing:0.1em;color:var(--muted);margin:18px 0 10px}
+.notconnected{background:rgba(245,166,35,0.08);border:1px solid var(--amber);color:var(--amber);
+padding:12px 16px;border-radius:8px;font-size:12px;line-height:1.6;margin-bottom:14px}
+.btn{background:transparent;border:1px solid var(--sol-purple);color:var(--sol-purple);
+font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;
+padding:7px 14px;border-radius:5px;cursor:pointer;transition:all .15s}
+.btn:hover{background:rgba(153,69,255,0.15)}
+.btn-green{border-color:var(--sol-green);color:var(--sol-green)}
+.btn-green:hover{background:rgba(20,241,149,0.12)}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--void-3);font-size:12.5px}
+.row:last-child{border-bottom:none}
+input{background:var(--void-3);border:1px solid var(--border-glow);color:var(--white);
+font-family:var(--font-mono);border-radius:4px;padding:7px 10px;outline:none;font-size:12px}
+input:focus{border-color:var(--sol-purple)}
+.honest{font-size:11px;color:var(--muted);line-height:1.6;margin-top:14px;font-style:italic}
+.pending-item{background:var(--void-3);border:1px solid var(--amber);border-radius:6px;padding:10px;margin-bottom:8px;font-size:12px}
+.pending-item pre{background:var(--void);padding:6px;border-radius:4px;margin:6px 0;overflow-x:auto;font-size:11px;max-height:120px;white-space:pre-wrap}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.dot-green{background:var(--sol-green)}.dot-red{background:var(--danger)}
+.agentOut{margin-top:8px;font-size:11.5px;color:var(--white);line-height:1.5;
+white-space:pre-wrap;max-height:200px;overflow-y:auto;border-top:1px solid var(--void-3);padding-top:6px;display:none}
+.agentOut.show{display:block}
+.btn-amber{border-color:var(--amber);color:var(--amber)}
+.btn-amber:hover{background:rgba(245,166,35,0.12)}
+.riskbadge{display:inline-block;padding:2px 8px;border-radius:4px;font-weight:700;font-size:10px}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">YABBAI <span>UNIFIED</span></span>
+  <div class="badges">
+    <span class="badge">LOCAL</span><span class="badge">PRIVATE</span>
+    <span class="badge badge-model" id="modelBadge">…</span>
+    <span class="badge" id="ghBadge">DEFI: …</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-view="chat" onclick="switchTab('chat')">Chat</div>
+  <div class="tab" data-view="ide" onclick="switchTab('ide')">Coder / IDE</div>
+  <div class="tab" data-view="defi" onclick="switchTab('defi')">DeFi</div>
+  <div class="tab" data-view="agent" onclick="switchTab('agent')">Agent 24/7</div>
+  <div class="tab" data-view="agents" onclick="switchTab('agents')">Agents</div>
+  <div class="tab" data-view="learn" onclick="switchTab('learn')">Learning</div>
+</div>
+
+<!-- CHAT (iframe to existing chat UI) -->
+<div class="view active" id="view-chat"><iframe src="/chat"></iframe></div>
+
+<!-- IDE (iframe to existing IDE UI) -->
+<div class="view" id="view-ide"><iframe src="/ide-frame"></iframe></div>
+
+<!-- DEFI -->
+<div class="view" id="view-defi">
+  <div class="pad">
+    <div id="ghNotice" class="notconnected" style="display:none"></div>
+    <div class="section-title">Vault &amp; Treasury (Gold Hunter — real)</div>
+    <div class="grid" id="defiVault">
+      <div class="card"><div class="label">Net Profit (vault)</div><div class="val green" id="vNet">—</div><div class="sub">real income − expenses</div></div>
+      <div class="card"><div class="label">Vault Balance</div><div class="val purple" id="vBal">—</div><div class="sub">from Gold Hunter DB</div></div>
+      <div class="card"><div class="label">Treasury Status</div><div class="val" id="vTreas">—</div><div class="sub">on-chain</div></div>
+    </div>
+
+    <div class="section-title">Live On-Chain Data</div>
+    <div class="card">
+      <div class="row"><span>Token mint</span><span><input id="mintInput" placeholder="paste SPL mint…" style="width:280px"></span></div>
+      <div class="row"><span>Price (Jupiter)</span><span class="green" id="livePrice">—</span></div>
+      <div class="row"><span>Wallet</span><span><input id="walletInput" placeholder="paste SOL address…" style="width:280px"></span></div>
+      <div class="row"><span>SOL balance</span><span class="purple" id="liveSol">—</span></div>
+      <div style="margin-top:10px"><button class="btn btn-green" onclick="refreshLive()">Refresh live data</button></div>
+    </div>
+
+    <div class="honest" id="defiHonest">All figures are real (Gold Hunter vault + live chain) or marked "not connected". No simulated yield, ever.</div>
+  </div>
+</div>
+
+<!-- AGENT -->
+<div class="view" id="view-agent">
+  <div class="pad">
+    <div class="section-title">Autonomous 24/7 Dev Agent</div>
+    <div class="grid">
+      <div class="card"><div class="label">Status</div><div class="val" id="agentStatus">idle</div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-green" onclick="agentStart()">Start 24/7</button>
+          <button class="btn btn-danger" onclick="agentStop()">Stop</button>
+          <button class="btn" onclick="agentCycle()">Run 1 cycle</button>
+        </div></div>
+      <div class="card"><div class="label">API spend today</div><div class="val amber" id="agentSpend">$0.00</div><div class="sub">hard daily cap backstop</div></div>
+    </div>
+
+    <div class="section-title">Pending Your Approval (irreversible changes)</div>
+    <div id="agentPending"><div class="honest">Nothing waiting. Money/security/core changes appear here for one-tap approval.</div></div>
+
+    <div class="section-title">Night's Work (git commits — all reversible)</div>
+    <div class="card" id="agentCommits"><div class="honest">No autonomous changes yet.</div></div>
+    <div class="honest">Safe fixes auto-apply only if tests pass. Anything touching money, security,
+      core code, deletes, or real funds is queued above. Every change is a git commit you can revert.</div>
+  </div>
+</div>
+
+<!-- AGENTS (the five specialized agents) -->
+<div class="view" id="view-agents">
+  <div class="pad">
+    <div class="section-title">Your Agent Team — five specialists, directed by you</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+
+      <div class="card">
+        <div class="label purple">🔍 Research Agent</div>
+        <div class="sub" style="margin-bottom:8px">Structured brief on any topic (verify sources yourself).</div>
+        <input id="researchTopic" placeholder="topic to research…" style="width:100%;margin-bottom:6px">
+        <button class="btn" onclick="runResearch()">Research</button>
+        <div id="researchOut" class="agentOut"></div>
+      </div>
+
+      <div class="card">
+        <div class="label green">🛡️ Scam Scout</div>
+        <div class="sub" style="margin-bottom:8px">Check a URL/opportunity for scam red flags. Never executes.</div>
+        <input id="scamUrl" placeholder="https://suspicious-link…" style="width:100%;margin-bottom:6px">
+        <button class="btn btn-green" onclick="runScam()">Check for scams</button>
+        <div id="scamOut" class="agentOut"></div>
+      </div>
+
+      <div class="card">
+        <div class="label amber">📝 Summarizer</div>
+        <div class="sub" style="margin-bottom:8px">Condense long text into a clear summary.</div>
+        <textarea id="sumText" placeholder="paste text to summarize…" style="width:100%;height:60px;margin-bottom:6px;background:var(--void-3);border:1px solid var(--border-glow);color:var(--white);border-radius:4px;font-family:inherit;font-size:12px;padding:6px"></textarea>
+        <button class="btn btn-amber" onclick="runSummarize()">Summarize</button>
+        <div id="sumOut" class="agentOut"></div>
+      </div>
+
+      <div class="card">
+        <div class="label purple">🔧 Code Fixer</div>
+        <div class="sub" style="margin-bottom:8px">Review code, propose fixes (never auto-applies).</div>
+        <textarea id="codeText" placeholder="paste code to review…" style="width:100%;height:60px;margin-bottom:6px;background:var(--void-3);border:1px solid var(--border-glow);color:var(--white);border-radius:4px;font-family:inherit;font-size:12px;padding:6px"></textarea>
+        <button class="btn" onclick="runCodeFix()">Review code</button>
+        <div id="codeOut" class="agentOut"></div>
+      </div>
+
+      <div class="card">
+        <div class="label green">📅 Scheduler</div>
+        <div class="sub" style="margin-bottom:8px">Organize tasks; suggests an order. You do the work.</div>
+        <input id="taskInput" placeholder="new task…" style="width:100%;margin-bottom:6px">
+        <button class="btn btn-green" onclick="addTask()">Add task</button>
+        <button class="btn" onclick="listTasks()">Show tasks</button>
+        <div id="taskOut" class="agentOut"></div>
+      </div>
+
+    </div>
+    <div class="honest">Each agent returns information or proposes actions — none act irreversibly on their own.
+      A team of assistants, directed by you. Built on your local model.</div>
+  </div>
+</div>
+
+<!-- LEARNING -->
+<div class="view" id="view-learn">
+  <div class="pad">
+    <div class="section-title">What YABBAI Has Learned About You</div>
+    <div class="grid" id="learnStats">
+      <div class="card"><div class="label">Total events</div><div class="val green" id="lEvents">0</div></div>
+      <div class="card"><div class="label">Escalation accept rate</div><div class="val purple" id="lAccept">—</div></div>
+    </div>
+    <div class="section-title">Patterns</div>
+    <div class="card" id="learnPatterns"><div class="honest">Use YABBAI a bit and patterns appear here.</div></div>
+    <div class="honest">This learns YOUR habits to route and assist better — not to "earn". It's a local file you can inspect or reset.
+      <button class="btn btn-danger" style="margin-left:10px" onclick="learnReset()">Reset learning</button></div>
+  </div>
+</div>
+
+<script>
+const API='';
+function switchTab(v){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===v));
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  if(v==='defi')loadDefi();
+  if(v==='agent')loadAgent();
+  if(v==='agents')listTasks();
+  if(v==='learn')loadLearn();
+}
+
+async function boot(){
+  try{const m=await fetch(API+'/api/router/models').then(r=>r.json());
+    const wh=(m.available||[]).find(x=>x.id===m.workhorse);
+    document.getElementById('modelBadge').textContent=wh?wh.model:'local';}catch(e){}
+  loadDefi();
+}
+
+// ── DeFi ──
+async function loadDefi(){
+  try{const o=await fetch(API+'/api/defi/overview').then(r=>r.json());
+    const connected=o.gold_hunter_connected;
+    const badge=document.getElementById('ghBadge');
+    badge.textContent='DEFI: '+(connected?'connected':'not connected');
+    badge.className='badge'+(connected?'':' badge-warn');
+    const notice=document.getElementById('ghNotice');
+    if(!connected){
+      notice.style.display='block';
+      notice.innerHTML='⚠ Gold Hunter backend not running. Start it alongside YABBAI '+
+        '(default http://localhost:8000) to see real vault &amp; treasury data. '+
+        'Live on-chain data below still works without it.';
+      document.getElementById('vNet').textContent='—';
+      document.getElementById('vBal').textContent='—';
+      document.getElementById('vTreas').textContent='offline';
+    }else{
+      notice.style.display='none';
+      const v=o.vault||{};
+      document.getElementById('vNet').textContent=v.net_profit!=null?('$'+v.net_profit):'$0.00';
+      document.getElementById('vBal').textContent=v.balance!=null?('$'+v.balance):'$0.00';
+      document.getElementById('vTreas').innerHTML='<span class="dot dot-green"></span>online';
+    }
+  }catch(e){}
+}
+async function refreshLive(){
+  const mint=document.getElementById('mintInput').value.trim();
+  const wallet=document.getElementById('walletInput').value.trim();
+  if(mint){try{const p=await fetch(API+'/api/defi/price?mint='+encodeURIComponent(mint)).then(r=>r.json());
+    document.getElementById('livePrice').textContent=p.ok?('$'+p.price):'(unreachable)';}catch(e){}}
+  if(wallet){try{const b=await fetch(API+'/api/defi/sol-balance?owner='+encodeURIComponent(wallet)).then(r=>r.json());
+    document.getElementById('liveSol').textContent=b.ok?(b.sol.toFixed(4)+' SOL'):'(unreachable)';}catch(e){}}
+}
+
+// ── Agent ──
+async function loadAgent(){
+  try{const w=await fetch(API+'/api/agent/nights-work').then(r=>r.json());
+    document.getElementById('agentSpend').textContent='$'+(w.api_spend_today_usd||0).toFixed(2);
+    const commits=w.commits||[];
+    document.getElementById('agentCommits').innerHTML=commits.length?
+      commits.map(c=>`<div class="row"><span style="color:var(--muted)">${c}</span></div>`).join(''):
+      '<div class="honest">No autonomous changes yet.</div>';
+    const pending=w.pending_review||[];
+    document.getElementById('agentPending').innerHTML=pending.length?
+      pending.map(p=>`<div class="pending-item"><b class="amber">${p.kind}</b> · ${p.path}<br>${p.summary}
+        <pre>${(p.diff||'').replace(/</g,'&lt;')}</pre>
+        <button class="btn btn-green" onclick="agentApprove('${p.id}')">Approve</button>
+        <button class="btn btn-danger" onclick="agentReject('${p.id}')">Reject</button></div>`).join(''):
+      '<div class="honest">Nothing waiting.</div>';
+  }catch(e){}
+}
+async function agentStart(){await fetch(API+'/api/agent/start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  document.getElementById('agentStatus').textContent='running 24/7';loadAgent();}
+async function agentStop(){await fetch(API+'/api/agent/stop',{method:'POST'});
+  document.getElementById('agentStatus').textContent='idle';}
+async function agentCycle(){await fetch(API+'/api/agent/cycle',{method:'POST'});loadAgent();}
+async function agentApprove(id){await fetch(API+'/api/agent/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadAgent();}
+async function agentReject(id){await fetch(API+'/api/agent/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadAgent();}
+
+// ── Learning ──
+async function loadLearn(){
+  try{const i=await fetch(API+'/api/learning/insights').then(r=>r.json());
+    document.getElementById('lEvents').textContent=i.total_events||0;
+    document.getElementById('lAccept').textContent=i.escalation_accept_rate_pct!=null?(i.escalation_accept_rate_pct+'%'):'—';
+    const esc=(i.top_escalate_keywords||[]).map(k=>`<div class="row"><span>escalates: ${k[0]}</span><span class="amber">${k[1]}×</span></div>`).join('');
+    const loc=(i.top_keep_local_keywords||[]).map(k=>`<div class="row"><span>keeps local: ${k[0]}</span><span class="green">${k[1]}×</span></div>`).join('');
+    const areas=(i.busiest_task_areas||[]).map(k=>`<div class="row"><span>area: ${k[0]}</span><span class="purple">${k[1]}×</span></div>`).join('');
+    document.getElementById('learnPatterns').innerHTML=(esc+loc+areas)||'<div class="honest">Use YABBAI a bit and patterns appear here.</div>';
+  }catch(e){}
+}
+async function learnReset(){await fetch(API+'/api/learning/reset',{method:'POST'});loadLearn();}
+
+// ── Five Agents ──
+function showOut(id,html){const el=document.getElementById(id);el.innerHTML=html;el.classList.add('show');}
+async function runResearch(){
+  const topic=document.getElementById('researchTopic').value.trim();if(!topic)return;
+  showOut('researchOut','Researching…');
+  try{const r=await fetch(API+'/api/agents/research',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic})}).then(x=>x.json());
+    showOut('researchOut',(r.detail&&r.detail.brief?r.detail.brief:r.summary));}catch(e){showOut('researchOut','Error: '+e);}
+}
+async function runScam(){
+  const url=document.getElementById('scamUrl').value.trim();if(!url)return;
+  showOut('scamOut','Checking…');
+  try{const r=await fetch(API+'/api/agents/scam-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})}).then(x=>x.json());
+    const d=r.detail||{};const colors={critical:'#ef4444',high:'#f97316',medium:'#F5A623',low:'#14F195'};
+    let html=`<span class="riskbadge" style="background:${colors[d.risk_level]};color:#000">${(d.risk_level||'').toUpperCase()} ${d.risk_score}/100</span><br><br>`;
+    if(d.red_flags&&d.red_flags.length)html+=d.red_flags.map(f=>'🚩 '+f).join('<br>')+'<br><br>';
+    html+=d.verdict||'';showOut('scamOut',html);}catch(e){showOut('scamOut','Error: '+e);}
+}
+async function runSummarize(){
+  const text=document.getElementById('sumText').value.trim();if(!text)return;
+  showOut('sumOut','Summarizing…');
+  try{const r=await fetch(API+'/api/agents/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}).then(x=>x.json());
+    showOut('sumOut',(r.detail&&r.detail.summary?r.detail.summary:r.summary));}catch(e){showOut('sumOut','Error: '+e);}
+}
+async function runCodeFix(){
+  const code=document.getElementById('codeText').value.trim();if(!code)return;
+  showOut('codeOut','Reviewing…');
+  try{const r=await fetch(API+'/api/agents/code-fix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file_path:'snippet.py',code})}).then(x=>x.json());
+    showOut('codeOut',(r.detail&&r.detail.review?r.detail.review:r.summary));}catch(e){showOut('codeOut','Error: '+e);}
+}
+async function addTask(){
+  const task=document.getElementById('taskInput').value.trim();if(!task)return;
+  await fetch(API+'/api/agents/task/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,priority:'medium'})});
+  document.getElementById('taskInput').value='';listTasks();
+}
+async function listTasks(){
+  try{const r=await fetch(API+'/api/agents/task/list').then(x=>x.json());
+    const tasks=(r.detail&&r.detail.suggested_order)||[];
+    showOut('taskOut',tasks.length?tasks.map(t=>`[${t.priority}] ${t.task}`).join('<br>'):'No pending tasks.');}catch(e){}
+}
+
+boot();
+</script>
+</body>
+</html>

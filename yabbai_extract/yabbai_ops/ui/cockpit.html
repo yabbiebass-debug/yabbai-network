@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI Ops — Founder Cockpit</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{--void:#020814;--void-2:#060e20;--void-3:#0d1a35;--sol-purple:#9945FF;
+--sol-green:#14F195;--amber:#F5A623;--danger:#ef4444;--white:#e8f0ff;--muted:#4a6080;
+--border-glow:rgba(153,69,255,0.35);--font-mono:'JetBrains Mono',monospace;--font-display:'Unbounded',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono);background:var(--void);color:var(--white);min-height:100vh;
+font-size:13px;padding:20px;background-image:radial-gradient(circle at 15% 5%,rgba(153,69,255,0.06),transparent 40%)}
+h1{font-family:var(--font-display);font-size:22px;margin-bottom:4px}
+h1 span{color:var(--sol-purple)}
+.sub{color:var(--muted);font-size:12px;margin-bottom:20px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:20px}
+.card{background:var(--void-2);border:1px solid var(--border-glow);border-radius:8px;padding:16px}
+.card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
+.card .val{font-family:var(--font-display);font-size:24px}
+.green{color:var(--sol-green)}.purple{color:var(--sol-purple)}.amber{color:var(--amber)}.red{color:var(--danger)}
+.gap{color:var(--amber);font-size:12px;font-style:italic}
+.section{font-family:var(--font-display);font-size:13px;text-transform:uppercase;letter-spacing:0.1em;
+color:var(--muted);margin:24px 0 12px}
+input,select,textarea{background:var(--void-3);border:1px solid var(--border-glow);color:var(--white);
+font-family:inherit;border-radius:4px;padding:7px 10px;font-size:12px;outline:none;margin:3px 0}
+input:focus,textarea:focus{border-color:var(--sol-purple)}
+.btn{background:transparent;border:1px solid var(--sol-purple);color:var(--sol-purple);
+font-family:inherit;font-size:11px;text-transform:uppercase;padding:7px 14px;border-radius:5px;cursor:pointer}
+.btn:hover{background:rgba(153,69,255,0.15)}
+.btn-green{border-color:var(--sol-green);color:var(--sol-green)}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.out{margin-top:10px;font-size:12px;line-height:1.6;white-space:pre-wrap;border-top:1px solid var(--void-3);padding-top:8px;display:none}
+.out.show{display:block}
+.pending{background:var(--void-3);border:1px solid var(--amber);border-radius:6px;padding:10px;margin-bottom:8px;font-size:12px}
+.honest{font-size:11px;color:var(--muted);font-style:italic;line-height:1.6;margin-top:16px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td{padding:6px 0;border-bottom:1px solid var(--void-3)}
+</style>
+</head>
+<body>
+<h1>YABBAI <span>OPS</span> — Founder Cockpit</h1>
+<div class="sub">Honest metrics · EV decisions · human-gated actions. Organizes your work — you do the business.</div>
+
+<div class="section">Reconciled Revenue (real money only)</div>
+<div class="grid">
+  <div class="card"><div class="label">Reconciled Total</div><div class="val green" id="revTotal">—</div><div class="sub">processor-verified only</div></div>
+  <div class="card"><div class="label">MRR</div><div class="val purple" id="mrr">—</div></div>
+  <div class="card"><div class="label">Pending Approvals</div><div class="val amber" id="pendCount">0</div></div>
+</div>
+
+<div class="section">KPIs</div>
+<div class="card"><table id="kpiTable"><tr><td class="muted">Loading…</td></tr></table></div>
+
+<div class="section">Score an Action (EV + gate)</div>
+<div class="card">
+  <input id="actName" placeholder="action (e.g. Run $20 FB ad test)" style="width:100%">
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <input id="actP" type="number" step="0.1" placeholder="P(success) 0-1" style="width:130px">
+    <input id="actUp" type="number" placeholder="upside $" style="width:110px">
+    <input id="actCost" type="number" placeholder="cost $" style="width:90px">
+    <label style="color:var(--muted);font-size:11px;align-self:center"><input type="checkbox" id="actRev" checked> reversible</label>
+  </div>
+  <button class="btn" onclick="scoreAction()">Score it</button>
+  <div id="scoreOut" class="out"></div>
+</div>
+
+<div class="section">Check Marketing Copy (compliance)</div>
+<div class="card">
+  <textarea id="copyText" placeholder="paste copy to check for banned claims…" style="width:100%;height:50px"></textarea>
+  <button class="btn btn-green" onclick="checkCopy()">Check claims</button>
+  <div id="copyOut" class="out"></div>
+</div>
+
+<div class="section">Pending Your Approval (money / irreversible actions)</div>
+<div id="pendingList"><div class="honest">Nothing queued. Actions that send, purchase, publish, or spend over the cap appear here for your approval.</div></div>
+
+<div class="honest">This cockpit gives you real operational discipline: honest metrics that can't be faked,
+EV scoring so you decide with numbers, and hard gates so no money or irreversible action happens without you.
+It organizes your work and your assistants' drafts — it does not autonomously generate profit, because that
+isn't real. Getting real paying customers is the work, and it's yours to do.</div>
+
+<script>
+const API='';
+async function load(){
+  try{const d=await fetch(API+'/api/ops/dashboard').then(r=>r.json());
+    document.getElementById('revTotal').textContent='$'+(d.reconciled_revenue.reconciled_total||0);
+    document.getElementById('mrr').textContent=d.kpis.mrr.value!=null?('$'+d.kpis.mrr.value):'—';
+    document.getElementById('pendCount').textContent=d.pending_approvals||0;
+    // KPI table
+    const rows=Object.entries(d.kpis).map(([k,v])=>
+      `<tr><td>${k}</td><td style="text-align:right">${v.real?('<span class="green">'+v.value+'</span>'):'<span class="gap">DATA GAP</span>'}</td></tr>`).join('');
+    document.getElementById('kpiTable').innerHTML=rows;
+  }catch(e){}
+  loadPending();
+}
+async function scoreAction(){
+  const body={action:document.getElementById('actName').value,
+    p_success:parseFloat(document.getElementById('actP').value)||0,
+    upside:parseFloat(document.getElementById('actUp').value)||0,
+    cost:parseFloat(document.getElementById('actCost').value)||0,
+    reversible:document.getElementById('actRev').checked};
+  const r=await fetch(API+'/api/ops/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(x=>x.json());
+  const colors={low:'#14F195',medium:'#F5A623',high:'#ef4444'};
+  const rc=r.gate.risk_class;
+  let html=`EV: $${r.ev_ticket.ev} — ${r.ev_ticket.verdict}\n`;
+  html+=`Gate: <span class="badge" style="background:${colors[rc]};color:#000">${rc.toUpperCase()}</span> → ${r.gate.decision}\n${r.gate.note}`;
+  const el=document.getElementById('scoreOut');el.innerHTML=html;el.classList.add('show');
+  loadPending();load();
+}
+async function checkCopy(){
+  const r=await fetch(API+'/api/ops/check-copy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:document.getElementById('copyText').value})}).then(x=>x.json());
+  let html=r.ok?'<span class="green">✓ No banned claims detected.</span>':'<span class="red">✗ Issues found:</span>\n'+r.issues.map(i=>'  • '+i).join('\n');
+  const el=document.getElementById('copyOut');el.innerHTML=html;el.classList.add('show');
+}
+async function loadPending(){
+  try{const r=await fetch(API+'/api/ops/pending').then(x=>x.json());
+    const list=r.pending||[];
+    document.getElementById('pendingList').innerHTML=list.length?list.map(p=>
+      `<div class="pending"><b class="amber">${p.action}</b> ($${p.cost}) — ${p.risk_class}<br>
+       <span style="color:var(--muted)">${p.reason}</span><br>
+       <button class="btn btn-green" onclick="approve('${p.id}')">Approve</button>
+       <button class="btn btn-danger" onclick="reject('${p.id}')">Reject</button></div>`).join(''):
+      '<div class="honest">Nothing queued.</div>';
+  }catch(e){}
+}
+async function approve(id){await fetch(API+'/api/ops/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadPending();load();}
+async function reject(id){await fetch(API+'/api/ops/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadPending();load();}
+load();
+</script>
+</body>
+</html>

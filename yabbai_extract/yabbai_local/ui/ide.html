@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI Code</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{--void:#020814;--void-2:#060e20;--void-3:#0d1a35;--sol-purple:#9945FF;
+--sol-green:#14F195;--amber:#F5A623;--danger:#ef4444;--white:#e8f0ff;--muted:#4a6080;
+--border-glow:rgba(153,69,255,0.35);--font-mono:'JetBrains Mono',monospace;--font-display:'Unbounded',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono);background:var(--void);color:var(--white);height:100vh;overflow:hidden;font-size:13px}
+.app{display:grid;grid-template-columns:230px 1fr 420px;grid-template-rows:44px 1fr;height:100vh}
+.topbar{grid-column:1/4;display:flex;align-items:center;justify-content:space-between;
+padding:0 16px;border-bottom:1px solid var(--border-glow);background:var(--void-2)}
+.brand{font-family:var(--font-display);font-weight:900;font-size:15px}
+.brand span{color:var(--sol-purple)}
+.badges{display:flex;gap:6px;align-items:center}
+.badge{font-size:9px;letter-spacing:0.08em;padding:2px 7px;border-radius:3px;
+border:1px solid var(--border-glow);color:var(--sol-green);text-transform:uppercase}
+.badge-model{color:var(--sol-purple)}
+.sidebar{background:var(--void-2);border-right:1px solid var(--border-glow);overflow-y:auto;padding:8px}
+.sidebar .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;
+padding:6px 8px;display:flex;justify-content:space-between;align-items:center}
+.tree-item{padding:4px 8px;cursor:pointer;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.tree-item:hover{background:var(--void-3)}
+.tree-item.active{background:rgba(153,69,255,0.18);color:var(--sol-purple)}
+.tree-item.dir{color:var(--amber)}
+.editor{display:flex;flex-direction:column;background:var(--void);overflow:hidden}
+.editor-head{padding:8px 14px;border-bottom:1px solid var(--void-3);color:var(--muted);font-size:12px;
+display:flex;justify-content:space-between;align-items:center}
+.editor-body{flex:1;overflow:auto;padding:14px;white-space:pre;font-size:12.5px;line-height:1.55;tab-size:2}
+.editor-empty{color:var(--muted);padding:40px;text-align:center;line-height:1.8}
+.chat{background:var(--void-2);border-left:1px solid var(--border-glow);display:flex;flex-direction:column}
+.chat-head{padding:10px 14px;border-bottom:1px solid var(--border-glow);font-size:11px;
+color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;display:flex;justify-content:space-between}
+.chat-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{padding:9px 12px;border-radius:9px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;max-width:95%}
+.msg.user{align-self:flex-end;background:var(--void-3)}
+.msg.bot{align-self:flex-start;background:var(--void);border:1px solid var(--border-glow)}
+.msg .meta{font-size:9px;color:var(--muted);margin-top:5px}
+.tool-card{align-self:flex-start;background:var(--void);border:1px solid var(--amber);border-radius:9px;
+padding:11px;max-width:95%;font-size:12px}
+.tool-card .th{color:var(--amber);text-transform:uppercase;font-size:10px;letter-spacing:0.08em;margin-bottom:6px}
+.tool-card pre{background:var(--void-3);padding:8px;border-radius:5px;overflow-x:auto;font-size:11px;
+margin:6px 0;max-height:200px;white-space:pre-wrap}
+.tool-card .acts{display:flex;gap:7px;margin-top:8px}
+.autorun{align-self:flex-start;font-size:11px;color:var(--sol-green);padding:2px 0}
+.chat-foot{padding:10px;border-top:1px solid var(--border-glow);display:flex;gap:8px}
+textarea{flex:1;background:var(--void-3);border:1px solid var(--border-glow);color:var(--white);
+font-family:var(--font-mono);border-radius:6px;padding:8px 10px;resize:none;outline:none;font-size:12.5px;height:54px}
+textarea:focus{border-color:var(--sol-purple)}
+.btn{background:transparent;border:1px solid var(--sol-purple);color:var(--sol-purple);
+font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:0.06em;
+padding:6px 13px;border-radius:5px;cursor:pointer;transition:all .15s}
+.btn:hover{background:rgba(153,69,255,0.15)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-green{border-color:var(--sol-green);color:var(--sol-green)}
+.btn-green:hover{background:rgba(20,241,149,0.12)}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.btn-danger:hover{background:rgba(239,68,68,0.12)}
+.btn-sm{font-size:10px;padding:4px 9px}
+#setup{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(245,166,35,0.1);
+border:1px solid var(--amber);color:var(--amber);padding:8px 16px;border-radius:6px;font-size:11px;z-index:50}
+.hidden{display:none}
+.cursor::after{content:'▋';animation:blink 1s infinite;color:var(--sol-green)}
+@keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="brand">YABBAI <span>CODE</span></span>
+    <div class="badges">
+      <span class="badge">LOCAL</span><span class="badge">PRIVATE</span>
+      <span class="badge badge-model" id="modelBadge">…</span>
+      <a class="badge" href="/chat" style="text-decoration:none">CHAT MODE →</a>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="label">Workspace <span class="btn btn-sm" onclick="loadTree()" style="cursor:pointer">↻</span></div>
+    <div id="tree"></div>
+  </div>
+
+  <div class="editor">
+    <div class="editor-head">
+      <span id="editorPath">no file open</span>
+      <button class="btn btn-sm btn-green hidden" id="saveBtn" onclick="saveFile()">Save</button>
+    </div>
+    <div class="editor-body" id="editorBody" contenteditable="false"><div class="editor-empty">
+      Select a file from the workspace to view it.<br>
+      Ask YABBAI Code on the right to read, write, or run things.<br><br>
+      Files live in <b>yabbai_workspace/</b> next to the app.
+    </div></div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-head"><span>YABBAI Code Assistant</span>
+      <span class="btn btn-sm" onclick="resetChat()" style="cursor:pointer">reset</span></div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-foot">
+      <textarea id="input" placeholder="Ask to read/write/run code…  (Enter to send)"></textarea>
+      <button class="btn" id="sendBtn" onclick="send()">Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="setup" class="hidden"></div>
+
+<script>
+const API='';
+let busy=false, currentFile=null;
+
+async function boot(){
+  try{const m=await fetch(API+'/api/models').then(r=>r.json());
+    document.getElementById('modelBadge').textContent=m.current;}catch(e){}
+  loadTree(); checkSetup(); setInterval(()=>{if(!document.hidden)checkSetup();},15000);
+}
+async function checkSetup(){
+  try{const s=await fetch(API+'/api/setup').then(r=>r.json());
+    const el=document.getElementById('setup');
+    if(s.ready)el.classList.add('hidden');
+    else{el.classList.remove('hidden');el.textContent='⚠ '+s.message;}
+  }catch(e){}
+}
+async function loadTree(){
+  try{const t=await fetch(API+'/api/code/tree?path=.').then(r=>r.json());
+    const el=document.getElementById('tree');
+    if(!t.ok||!t.tree||t.tree==='(empty)'){el.innerHTML='<div class="tree-item" style="color:var(--muted)">(empty workspace)</div>';return;}
+    el.innerHTML=t.tree.split('\n').map(line=>{
+      const name=line.trim();const isDir=name.endsWith('/');
+      const indent=(line.length-line.trimStart().length)*6;
+      return `<div class="tree-item ${isDir?'dir':''}" style="padding-left:${8+indent}px"
+        ${isDir?'':`onclick="openFile('${name}')"`}>${name}</div>`;
+    }).join('');
+  }catch(e){}
+}
+async function openFile(path){
+  try{const f=await fetch(API+'/api/code/file?path='+encodeURIComponent(path)).then(r=>r.json());
+    if(!f.ok){return;}
+    currentFile=path;
+    document.getElementById('editorPath').textContent=path+(f.truncated?' (truncated)':'');
+    document.getElementById('editorBody').textContent=f.content;
+    document.getElementById('saveBtn').classList.remove('hidden');
+    document.querySelectorAll('.tree-item').forEach(t=>t.classList.remove('active'));
+  }catch(e){}
+}
+async function saveFile(){
+  if(!currentFile)return;
+  const content=document.getElementById('editorBody').textContent;
+  await fetch(API+'/api/code/file',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path:currentFile,content})});
+  addBot('Saved '+currentFile,'(file write)');
+}
+
+function addMsg(text,who,meta){
+  const b=document.getElementById('chatBody');const d=document.createElement('div');
+  d.className='msg '+who;d.textContent=text;
+  if(meta){const m=document.createElement('div');m.className='meta';m.textContent=meta;d.appendChild(m);}
+  b.appendChild(d);b.scrollTop=b.scrollHeight;return d;
+}
+function addBot(t,m){return addMsg(t,'bot',m);}
+function addAuto(t){const b=document.getElementById('chatBody');const d=document.createElement('div');
+  d.className='autorun';d.textContent='⚙ '+t;b.appendChild(d);b.scrollTop=b.scrollHeight;}
+
+function renderConfirm(res){
+  const b=document.getElementById('chatBody');
+  const card=document.createElement('div');card.className='tool-card';
+  card.innerHTML=`<div class="th">⚠ Confirm: ${res.tool}</div>
+    <pre>${(res.preview||'').replace(/</g,'&lt;')}</pre>
+    <div class="acts">
+      <button class="btn btn-sm btn-green" id="okBtn">Approve & Run</button>
+      <button class="btn btn-sm btn-danger" id="noBtn">Decline</button></div>`;
+  b.appendChild(card);b.scrollTop=b.scrollHeight;
+  card.querySelector('#okBtn').onclick=()=>{card.remove();confirmAction(res.pending_id,true);};
+  card.querySelector('#noBtn').onclick=()=>{card.remove();confirmAction(res.pending_id,false);};
+}
+
+async function handleResult(res){
+  if(res.type==='confirm'){renderConfirm(res);return;}
+  // message
+  addBot(res.content||'(no response)', res.model?('model: '+res.model):'');
+  loadTree(); // refresh in case files changed
+}
+
+async function send(){
+  if(busy)return;const inp=document.getElementById('input');const text=inp.value.trim();
+  if(!text)return;inp.value='';addMsg(text,'user');
+  busy=true;document.getElementById('sendBtn').disabled=true;
+  const thinking=addBot('','thinking…');thinking.classList.add('cursor');
+  try{const res=await fetch(API+'/api/code/chat',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})}).then(r=>r.json());
+    thinking.remove();await handleResult(res);
+  }catch(e){thinking.remove();addBot('Error: '+e.message);}
+  busy=false;document.getElementById('sendBtn').disabled=false;
+}
+
+async function confirmAction(pid,approved){
+  busy=true;
+  if(approved)addAuto('running approved action…');else addAuto('declined.');
+  const thinking=addBot('','continuing…');thinking.classList.add('cursor');
+  try{const res=await fetch(API+'/api/code/confirm',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({pending_id:pid,approved})}).then(r=>r.json());
+    thinking.remove();await handleResult(res);
+  }catch(e){thinking.remove();addBot('Error: '+e.message);}
+  busy=false;
+}
+
+async function resetChat(){await fetch(API+'/api/code/reset',{method:'POST'});
+  document.getElementById('chatBody').innerHTML='';}
+
+document.getElementById('input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+
+boot();
+</script>
+</body>
+</html>

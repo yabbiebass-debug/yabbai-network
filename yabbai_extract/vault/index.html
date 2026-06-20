@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI VAULT — templates that configure themselves to you</title>
+<meta name="description" content="Automation kits, agency systems and site templates — each with an AI configurator that tailors the setup to your exact business before you buy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:14px;line-height:1.65}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  input{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:11px 13px;border-radius:3px;font-size:13px;width:100%}
+  a{color:var(--green)}
+  .wrap{max-width:1020px;margin:0 auto;padding:0 22px 70px}
+  .nav{display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}
+  .brand b{color:var(--purple)}
+  .brand small{display:block;font-weight:400;font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:2px}
+  .hero{padding:46px 0 30px;max-width:64ch}
+  .hero h1{font-family:var(--disp);font-weight:800;font-size:clamp(22px,3.6vw,34px);line-height:1.2}
+  .hero h1 em{color:var(--green);font-style:normal}
+  .hero p{color:var(--dim);margin-top:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;padding:14px 0}
+  .pcard{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:20px;display:flex;
+    flex-direction:column;gap:10px;transition:border-color .15s;cursor:pointer}
+  .pcard:hover{border-color:var(--purple)}
+  .pcard .badge{align-self:flex-start;font-size:8.5px;letter-spacing:2px;padding:3px 8px;border:1px solid var(--amber);
+    color:var(--amber);border-radius:2px;text-transform:uppercase}
+  .pcard h3{font-family:var(--disp);font-size:13px;line-height:1.4}
+  .pcard p{font-size:11.5px;color:var(--dim);flex:1}
+  .pcard .price{font-family:var(--disp);font-size:16px;color:var(--green)}
+  .pcard .cfg{font-size:10px;color:var(--purple);letter-spacing:1px}
+  /* product view */
+  .pv{display:none;padding:30px 0}
+  .pv.on{display:block}
+  .back{font-size:10px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;margin-bottom:18px;display:inline-block}
+  .pv h2{font-family:var(--disp);font-size:20px;margin-bottom:6px}
+  .pv .tag{color:var(--dim);margin-bottom:16px}
+  .twocol{display:grid;grid-template-columns:1.1fr .9fr;gap:24px}
+  .inc{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:18px}
+  .inc h4{font-family:var(--disp);font-size:10px;letter-spacing:2px;color:var(--dim);margin-bottom:10px;text-transform:uppercase}
+  .inc li{list-style:none;font-size:12px;color:var(--dim);padding:4px 0}
+  .inc li::before{content:'→ ';color:var(--green)}
+  .buy{border:1px solid var(--purple);background:linear-gradient(180deg,rgba(153,69,255,.08),transparent);
+    border-radius:4px;padding:18px}
+  .buy .price{font-family:var(--disp);font-size:24px;color:var(--green)}
+  .buy .cap{font-size:9.5px;letter-spacing:2px;color:var(--dim2);text-transform:uppercase;margin-bottom:14px}
+  .bbtn{display:block;text-align:center;width:100%;padding:13px;border-radius:3px;font-weight:700;font-size:11.5px;
+    letter-spacing:1.5px;text-transform:uppercase;margin-bottom:9px;text-decoration:none;border:1px solid}
+  .bbtn.stripe{background:var(--purple);color:#fff;border-color:var(--purple)}
+  .bbtn.gum{color:var(--ink);border-color:var(--dim2)}
+  .buy .hint{font-size:10px;color:var(--dim2);line-height:1.7;margin-top:8px}
+  /* configurator */
+  .cfgbox{margin-top:26px;border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:22px}
+  .cfgbox h3{font-family:var(--disp);font-size:13px;margin-bottom:4px}
+  .cfgbox h3 i{font-style:normal;color:var(--purple)}
+  .cfgbox .sub{font-size:11px;color:var(--dim);margin-bottom:16px}
+  .qa .turn{margin-bottom:14px}
+  .qa .q{font-size:13px;color:var(--ink);margin-bottom:3px}
+  .qa .why{font-size:10px;color:var(--dim2);margin-bottom:8px}
+  .qa .a{color:var(--green);font-size:12px}
+  .arow{display:flex;gap:8px;margin-top:6px}
+  .arow input{flex:1}
+  .sbtn{padding:11px 18px;border:1px solid var(--green);color:var(--green);font-weight:700;font-size:10.5px;
+    letter-spacing:1.5px;text-transform:uppercase;border-radius:3px}
+  .sbtn:hover{background:var(--green);color:#021}
+  .sbtn[disabled]{opacity:.5;cursor:wait}
+  .guide{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:20px;margin-top:16px;
+    font-size:12.5px;line-height:1.8;white-space:pre-wrap}
+  .emailrow{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .emailrow input{flex:1;min-width:200px}
+  .pulse{color:var(--purple);font-size:11px}
+  .hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+  footer{padding:30px 0;border-top:1px solid var(--line);margin-top:46px;font-size:10px;color:var(--dim2);line-height:1.9}
+  @media(max-width:760px){.twocol{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <div class="brand">YABBAI <b>//</b> VAULT<small>SYSTEMS · TEMPLATES · KITS — CONFIGURED TO YOU</small></div>
+  </nav>
+
+  <div id="home">
+    <div class="hero">
+      <h1>Templates that <em>interview you</em> before you buy.</h1>
+      <p>Every kit in the Vault comes with a built-in AI configurator. Answer a few sharp questions about your business and it writes your personalised setup — names, colours, suburbs, tools, all of it — before a dollar leaves your pocket. Like what it builds? Buy the files it just configured.</p>
+    </div>
+    <div class="grid" id="grid"><div class="pulse">Loading the vault…</div></div>
+  </div>
+
+  <div class="pv" id="pv"></div>
+
+  <footer>
+    YABBAI VAULT · BASHAM Automations, Melbourne · Prices in AUD; marketplace listings may show USD.
+    Card payments via Stripe or Gumroad (Gumroad handles international taxes as merchant of record).
+    AU direct: PayID available on request. Digital goods — delivered instantly; setup guides are
+    generated from your own answers and never substitute professional legal, financial or medical advice.
+  </footer>
+</div>
+<input class="hp" id="hp" tabindex="-1" autocomplete="off">
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ============ CONFIG ============ */
+const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+const FN = SUPABASE_URL.startsWith('PASTE') ? '' : SUPABASE_URL + '/functions/v1/vault-config';
+
+const $ = s => document.querySelector(s);
+const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+if (SUPABASE_URL.startsWith('PASTE')) {
+  $('#grid').innerHTML = '<div class="pulse">Config needed: paste Supabase URL + anon key at the top of this file (see NO_OUTREACH_PLAYBOOK.md), then redeploy.</div>';
+  throw new Error('config');
+}
+const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let PRODUCTS = [];
+const state = { p:null, qa:[], pending:null, done:false };
+
+async function load(){
+  const { data } = await supa.from('vault_products').select('*').eq('active',true).order('sort');
+  PRODUCTS = data || [];
+  $('#grid').innerHTML = PRODUCTS.length ? PRODUCTS.map(p=>`
+    <div class="pcard" data-slug="${esc(p.slug)}">
+      ${p.badge?`<span class="badge">${esc(p.badge)}</span>`:''}
+      <h3>${esc(p.title)}</h3>
+      <p>${esc(p.tagline||'')}</p>
+      <div class="price">${AUD(p.price_aud)}</div>
+      <div class="cfg">▸ AI configurator included — try it free</div>
+    </div>`).join('')
+  : '<div class="pulse">The vault is being stocked — first drops land this week.</div>';
+  document.querySelectorAll('.pcard').forEach(c=>c.onclick=()=>open(c.dataset.slug));
+}
+
+function open(slug){
+  const p = PRODUCTS.find(x=>x.slug===slug); if(!p) return;
+  state.p = p; state.qa = []; state.pending = null; state.done = false;
+  $('#home').style.display='none';
+  const pv = $('#pv'); pv.classList.add('on');
+  pv.innerHTML = `
+    <a class="back" href="#" id="back">← back to the vault</a>
+    <h2>${esc(p.title)}</h2>
+    <div class="tag">${esc(p.tagline||'')}</div>
+    <div class="twocol">
+      <div>
+        <p style="color:var(--dim);font-size:13px;margin-bottom:16px">${esc(p.description||'')}</p>
+        <div class="inc"><h4>What you get</h4><ul>${(p.includes||[]).map(i=>`<li>${esc(i)}</li>`).join('')}</ul></div>
+      </div>
+      <div class="buy">
+        <div class="price">${AUD(p.price_aud)}</div>
+        <div class="cap">one-time · instant delivery · AUD</div>
+        ${p.stripe_link && !p.stripe_link.startsWith('PASTE') ? `<a class="bbtn stripe" href="${esc(p.stripe_link)}" target="_blank" rel="noopener">Buy with card (Stripe)</a>`:''}
+        ${p.gumroad_url && !p.gumroad_url.startsWith('PASTE') ? `<a class="bbtn gum" href="${esc(p.gumroad_url)}" target="_blank" rel="noopener">Buy on Gumroad (intl. tax handled)</a>`:''}
+        <div class="hint">Australian and prefer a direct transfer? PayID available — use the configurator below and leave your email; the invoice comes with PayID details.</div>
+      </div>
+    </div>
+    <div class="cfgbox">
+      <h3><i>▸</i> CONFIGURE IT TO YOUR BUSINESS — free, before you buy</h3>
+      <div class="sub">It asks one sharp question at a time, exactly like briefing a professional — every answer changes your setup guide.</div>
+      <div class="qa" id="qa"></div>
+      <div id="ctl"></div>
+    </div>`;
+  $('#back').onclick = (e)=>{ e.preventDefault(); pv.classList.remove('on'); $('#home').style.display='block'; };
+  askNext();
+}
+
+async function call(body){
+  body.website = $('#hp').value; // honeypot
+  const r = await fetch(FN,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  return r.json();
+}
+
+async function askNext(){
+  $('#ctl').innerHTML = '<div class="pulse">thinking about the next question…</div>';
+  try{
+    const j = await call({ action:'next', slug: state.p.slug, qa: state.qa });
+    if (j.done || state.qa.length >= 12){ state.done = true; renderFinalCta(); return; }
+    state.pending = j;
+    renderQA();
+  }catch{ $('#ctl').innerHTML = '<div class="pulse">Configurator is catching its breath — try again in a moment.</div>'; }
+}
+
+function renderQA(){
+  const qaHtml = state.qa.map(t=>`<div class="turn"><div class="q">${esc(t.q)}</div><div class="a">→ ${esc(t.a)}</div></div>`).join('');
+  $('#qa').innerHTML = qaHtml + (state.pending?`
+    <div class="turn"><div class="q">${esc(state.pending.question)}</div>
+    ${state.pending.why?`<div class="why">${esc(state.pending.why)}</div>`:''}</div>`:'');
+  $('#ctl').innerHTML = `
+    <div class="arow"><input id="ans" placeholder="Your answer…" maxlength="400">
+    <button class="sbtn" id="send">Answer</button></div>
+    ${state.qa.length>=2?`<div style="margin-top:10px"><button class="sbtn" id="skip" style="border-color:var(--dim2);color:var(--dim)">That's enough — generate my setup</button></div>`:''}`;
+  const submit = ()=>{ const v=$('#ans').value.trim(); if(!v) return;
+    state.qa.push({ q: state.pending.question, a: v }); state.pending=null; askNext(); };
+  $('#send').onclick = submit;
+  $('#ans').addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
+  $('#ans').focus();
+  const sk = $('#skip'); if(sk) sk.onclick = ()=>{ state.done=true; renderFinalCta(); };
+}
+
+function renderFinalCta(){
+  $('#ctl').innerHTML = `
+    <div class="emailrow">
+      <input id="em" type="email" placeholder="Email (optional — we'll send your guide + PayID invoice option)">
+      <button class="sbtn" id="gen">Generate my personalised setup</button>
+    </div>`;
+  $('#gen').onclick = async ()=>{
+    const btn=$('#gen'); btn.disabled=true; btn.textContent='Writing your guide…';
+    try{
+      const j = await call({ action:'final', slug: state.p.slug, qa: state.qa, email: $('#em').value.trim() });
+      $('#ctl').innerHTML = '';
+      $('#qa').insertAdjacentHTML('beforeend', `<div class="guide">${esc(j.guide||'Guide generation hiccuped — try once more.')}</div>
+        <div style="margin-top:14px;font-size:11px;color:var(--dim)">That's YOUR setup. The buy buttons above deliver the files it configures.</div>`);
+      window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+    }catch{ btn.disabled=false; btn.textContent='Generate my personalised setup'; }
+  };
+}
+
+load();
+</script>
+</body>
+</html>

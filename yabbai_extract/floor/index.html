@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI AGENCY FLOOR — call real leads, log real outcomes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.6}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  input,select,textarea{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:9px 11px;border-radius:3px;font-size:12px}
+  textarea{width:100%;min-height:70px;resize:vertical}
+  .btn{padding:10px 16px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:10.5px;
+    letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;transition:all .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .btn.green{border-color:var(--green);color:var(--green)} .btn.green:hover{background:var(--green);color:#021}
+  .btn.sm{padding:5px 10px;font-size:9px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px 70px}
+  .nav{display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}.brand b{color:var(--purple)}
+  .brand small{display:block;font-weight:400;font-size:9px;color:var(--dim);letter-spacing:2px}
+  .rolebadge{font-size:9px;letter-spacing:2px;padding:5px 10px;border:1px solid var(--green);color:var(--green);border-radius:2px;text-transform:uppercase}
+  .right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .tabs{display:flex;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tab{padding:13px 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);border-bottom:2px solid transparent}
+  .tab.on{color:var(--ink);border-bottom-color:var(--purple)}
+  .panel{display:none;padding:20px 0}.panel.on{display:block}
+  .eyebrow{font-size:9.5px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:8px;font-weight:700}
+  h2{font-family:var(--disp);font-size:16px;font-weight:600;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-weight:500}
+  td{padding:8px;border-bottom:1px solid rgba(153,69,255,.07);font-size:11.5px;vertical-align:top}
+  .fit{font-weight:700}.fit.Hot{color:var(--green)}.fit.Warm{color:var(--amber)}.fit.Cold{color:var(--dim2)}
+  .pill{font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;border:1px solid var(--dim2);border-radius:9px;color:var(--dim)}
+  .empty{padding:30px;text-align:center;color:var(--dim2);font-size:11.5px;border:1px dashed var(--line);border-radius:3px}
+  .box{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:18px;margin-bottom:14px}
+  .box h3{font-family:var(--disp);font-size:11px;letter-spacing:1.5px;margin-bottom:10px}
+  .formrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.formrow>*{flex:1;min-width:130px}
+  .hint{font-size:10px;color:var(--dim2);line-height:1.6}
+  /* call card */
+  .guide h4{font-family:var(--disp);font-size:10px;letter-spacing:1.5px;color:var(--purple);margin:12px 0 5px;text-transform:uppercase}
+  .guide .opener{font-size:13px;color:var(--ink);background:var(--panel2);padding:12px;border-radius:3px;line-height:1.6}
+  .guide ul{list-style:none;margin:4px 0}.guide li{padding:3px 0;font-size:12px;color:var(--dim)}
+  .guide li::before{content:'• ';color:var(--green)}
+  .guide .obj{font-size:11.5px;padding:6px 0;border-bottom:1px solid rgba(153,69,255,.07)}
+  .guide .obj b{color:var(--amber)}
+  .outcomes{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+  .oc{padding:8px 12px;border:1px solid var(--dim2);color:var(--dim);font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:3px}
+  .oc:hover{border-color:var(--purple);color:var(--purple)}
+  .oc.win{border-color:var(--green);color:var(--green)} .oc.win:hover{background:var(--green);color:#021}
+  .oc.dead{border-color:var(--red);color:var(--red)}
+  .gatewrap{min-height:80vh;display:flex;align-items:center;justify-content:center}
+  .gate{border:1px solid var(--line);background:var(--panel);padding:34px;max-width:430px;width:100%;border-radius:4px}
+  .gate h1{font-family:var(--disp);font-size:15px;margin-bottom:8px}.gate h1 b{color:var(--purple)}
+  .gate p{font-size:11.5px;color:var(--dim);margin-bottom:14px}.gate input{width:100%;margin-bottom:10px}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--panel);border:1px solid var(--green);color:var(--green);padding:11px 16px;font-size:11px;border-radius:3px;display:none;z-index:10}
+  .kpis{display:flex;gap:22px;margin-left:auto;flex-wrap:wrap}
+  .kpi{text-align:right}.kpi .v{font-family:var(--disp);font-size:16px}.kpi .l{font-size:8.5px;letter-spacing:2px;color:var(--dim2);text-transform:uppercase}
+  .kpi .v.g{color:var(--green)}
+  @media(max-width:760px){.kpis{gap:14px;margin-left:0}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+const PACKAGES={Starter:1500,Growth:4000,'Full Ops':8000}, TIERS={Maintain:500,Optimize:1500,Scale:3500};
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2800)};
+
+if(SUPABASE_URL.startsWith('PASTE')){
+  document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate"><h1>YABBAI <b>//</b> AGENCY FLOOR</h1><p>Config needed: Supabase URL + anon key at the top of this file. See README_AGENCY.md.</p></div></div>`;
+  throw new Error('config');
+}
+const supa=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+const ME={ role:null, staffId:null, directorId:null };
+const S={ leads:[], team:[], staff:[] };
+
+async function ensureAuth(){
+  const {data:{session}}=await supa.auth.getSession();
+  if(session) return session;
+  document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate">
+    <h1>YABBAI <b>//</b> AGENCY FLOOR</h1>
+    <p>Sign in. Directors and managers assign and oversee; callers get their assigned real leads with a tailored guide for each one.</p>
+    <input id="em" type="email" placeholder="you@email.com">
+    <button class="btn" id="go" style="width:100%">Send magic link</button>
+    <p class="hint" id="msg" style="margin-top:8px"></p>
+    <hr style="border-color:var(--line);margin:16px 0">
+    <p class="hint">Got an invite code from your director? Sign in first, then paste it:</p>
+    <input id="invc" placeholder="inv_…"><button class="btn green" id="acc" style="width:100%;margin-top:6px">Accept invite</button>
+  </div></div>`;
+  $('#go').onclick=async()=>{const email=$('#em').value.trim();if(!email)return;
+    const {error}=await supa.auth.signInWithOtp({email,options:{emailRedirectTo:location.href}});
+    $('#msg').textContent=error?error.message:'Link sent — check your inbox.';};
+  $('#acc').onclick=async()=>{const c=$('#invc').value.trim();if(!c)return;
+    const {error}=await supa.rpc('accept_invite',{p_code:c});
+    $('#msg').textContent=error?error.message:'Invite accepted — sign in with the magic link above.';};
+  return new Promise(res=>supa.auth.onAuthStateChange((_e,s)=>{if(s)res(s)}));
+}
+
+async function resolveRole(uid){
+  // Am I a director (own any rows) or staff (a staff row points at me)?
+  const {data:st}=await supa.from('staff').select('*').eq('user_id',uid).maybeSingle();
+  if(st){ ME.role=st.role; ME.staffId=st.id; ME.directorId=st.director; return; }
+  ME.role='director'; ME.directorId=uid;  // default: you, the owner
+}
+
+/* ---------- CSV import (real leads only) ---------- */
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) return [];
+  const head=lines[0].split(',').map(h=>h.trim().toLowerCase());
+  const idx=n=>head.findIndex(h=>h.includes(n));
+  const iBiz=idx('biz')>=0?idx('biz'):idx('name')>=0?idx('name'):0;
+  const iNiche=idx('niche')>=0?idx('niche'):idx('industry');
+  const iSub=idx('suburb')>=0?idx('suburb'):idx('city');
+  const iPain=idx('pain'), iEmail=idx('email'), iPhone=idx('phone');
+  return lines.slice(1).map(l=>{
+    const c=l.split(',').map(x=>x.trim());
+    return { biz:c[iBiz]||'', niche:iNiche>=0?c[iNiche]:'', suburb:iSub>=0?c[iSub]:'',
+             pain:iPain>=0?c[iPain]:'', email:iEmail>=0?c[iEmail]:'', phone:iPhone>=0?c[iPhone]:'' };
+  }).filter(r=>r.biz);
+}
+async function importCSV(file){
+  const text=await file.text();
+  const rows=parseCSV(text);
+  if(!rows.length){ toast('No rows found — needs a header row with at least a business/name column.'); return; }
+  // provenance batch
+  const {data:batch}=await supa.from('import_batches')
+    .insert({source:'csv', filename:file.name, rows_in:rows.length}).select().single();
+  // dedupe against existing leads (biz+suburb) AND within file
+  const {data:existing}=await supa.from('leads').select('biz,suburb');
+  const seen=new Set((existing||[]).map(e=>(e.biz+'|'+(e.suburb||'')).toLowerCase()));
+  const toAdd=[]; let dupe=0;
+  for(const r of rows){
+    const k=(r.biz+'|'+(r.suburb||'')).toLowerCase();
+    if(seen.has(k)){ dupe++; continue; } seen.add(k);
+    toAdd.push({ biz:r.biz, niche:r.niche||null, suburb:r.suburb||null, pain:r.pain||null,
+      email:r.email||null, phone:r.phone||null, source:'csv_import', batch_id:batch.id });
+  }
+  if(toAdd.length){ const {error}=await supa.from('leads').insert(toAdd); if(error){toast(error.message);return;} }
+  await supa.from('import_batches').update({rows_added:toAdd.length,rows_dupe:dupe}).eq('id',batch.id);
+  toast(`Imported ${toAdd.length} real leads · ${dupe} duplicates skipped`);
+  load();
+}
+
+/* ---------- shell ---------- */
+function shell(){
+  const isMgr = ME.role==='director'||ME.role==='manager';
+  document.getElementById('app').innerHTML=`
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">YABBAI <b>//</b> AGENCY FLOOR<small>REAL LEADS · REAL CALLS · REAL OUTCOMES</small></div>
+      <span class="rolebadge">${esc(ME.role)}</span>
+      <div class="kpis" id="kpis"></div>
+      <div class="right"><button class="btn" id="outBtn" style="border-color:var(--dim2);color:var(--dim)">Sign out</button></div>
+    </nav>
+    <div class="tabs">
+      <button class="tab on" data-t="myqueue">${isMgr?'All leads':'My call queue'}</button>
+      ${isMgr?'<button class="tab" data-t="import">Import real leads</button>':''}
+      ${isMgr?'<button class="tab" data-t="team">Team</button>':''}
+    </div>
+    <div class="panel on" id="p-myqueue"></div>
+    ${isMgr?'<div class="panel" id="p-import"></div><div class="panel" id="p-team"></div>':''}
+  </div>`;
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on'); $('#p-'+t.dataset.t).classList.add('on');
+  });
+  $('#outBtn').onclick=async()=>{await supa.auth.signOut();location.reload()};
+}
+
+async function load(){
+  const isMgr=ME.role==='director'||ME.role==='manager';
+  if(isMgr){
+    const [{data:leads},{data:team},{data:staff}]=await Promise.all([
+      supa.from('leads').select('*').neq('stage','Dead').order('created_at',{ascending:false}),
+      supa.from('team_view').select('*'),
+      supa.from('staff').select('*').eq('status','active'),
+    ]);
+    S.leads=leads||[]; S.team=team||[]; S.staff=staff||[];
+  } else {
+    const {data:leads}=await supa.from('leads').select('*')
+      .eq('assigned_staff',ME.staffId).neq('stage','Dead').order('created_at',{ascending:false});
+    S.leads=leads||[];
+  }
+  render();
+}
+
+function render(){
+  const isMgr=ME.role==='director'||ME.role==='manager';
+  const hot=S.leads.filter(l=>l.fit==='Hot').length;
+  $('#kpis').innerHTML=`<div class="kpi"><div class="v">${S.leads.length}</div><div class="l">${isMgr?'Open leads':'My leads'}</div></div>
+    <div class="kpi"><div class="v g">${hot}</div><div class="l">Hot</div></div>`;
+
+  // queue / all leads
+  $('#p-myqueue').innerHTML = S.leads.length ? `<table><thead><tr>
+    <th>Business</th><th>Niche · Suburb</th><th>Pain</th><th>Fit</th><th>Stage</th>${isMgr?'<th>Assigned</th>':''}<th></th></tr></thead><tbody>`+
+    S.leads.map(l=>{
+      const sName = isMgr ? (S.staff.find(s=>s.id===l.assigned_staff)?.name || '—') : '';
+      const assignSel = isMgr ? `<select onchange="window.assign('${l.id}',this.value)" style="font-size:10px">
+        <option value="">assign…</option>${S.staff.map(s=>`<option value="${s.id}" ${s.id===l.assigned_staff?'selected':''}>${esc(s.name||s.email)}</option>`).join('')}</select>` : '';
+      return `<tr>
+        <td><b>${esc(l.biz)}</b>${l.phone?`<br><span class="hint">${esc(l.phone)}</span>`:''}</td>
+        <td class="hint">${esc(l.niche||'—')} · ${esc(l.suburb||'—')}</td>
+        <td class="hint">${esc(l.pain||'—')}</td>
+        <td class="fit ${l.fit||''}">${l.fit||'—'}</td>
+        <td><span class="pill">${esc(l.stage)}</span></td>
+        ${isMgr?`<td class="hint">${esc(sName)}</td>`:''}
+        <td><button class="btn green sm" onclick="window.openCall('${l.id}')">Call guide</button></td>
+      </tr>`;}).join('')+`</tbody></table>
+      <div id="callbox"></div>`
+    : `<div class="empty">${isMgr?'No leads yet. Import real businesses (CSV) or let the Vault/widget feed inbound. Nothing synthetic — real names only.':'No leads assigned to you yet. Your manager will assign real leads here.'}</div>`;
+
+  if(isMgr && $('#p-import')){
+    $('#p-import').innerHTML=`
+      <div class="box">
+        <h3>IMPORT REAL LEADS (CSV)</h3>
+        <p class="hint" style="margin-bottom:10px">Export from Google Maps scrapers, Apollo, Clay, or your own list. Header row needs at least a <b>biz</b> (or name) column; optional: niche/industry, suburb/city, pain, email, phone. Duplicates (same business + suburb) are skipped automatically.</p>
+        <input type="file" id="csv" accept=".csv,text/csv">
+        <button class="btn green" id="impBtn" style="margin-left:8px">Import</button>
+      </div>
+      <div class="box">
+        <h3>ADD ONE LEAD (manual)</h3>
+        <div class="formrow">
+          <input id="aBiz" placeholder="Business name *"><input id="aNiche" placeholder="Niche">
+          <input id="aSub" placeholder="Suburb"><input id="aPhone" placeholder="Phone">
+        </div>
+        <div class="formrow"><input id="aPain" placeholder="Pain / why they'd buy"><input id="aEmail" placeholder="Email"></div>
+        <button class="btn" onclick="window.addOne()">Add lead</button>
+      </div>`;
+    $('#impBtn').onclick=()=>{const f=$('#csv').files[0]; if(!f){toast('Pick a CSV first.');return;} importCSV(f);};
+  }
+
+  if(isMgr && $('#p-team')){
+    $('#p-team').innerHTML=`
+      <div class="box"><h3>INVITE TEAMMATE</h3>
+        <div class="formrow">
+          <input id="iName" placeholder="Name"><input id="iEmail" placeholder="Email *">
+          <select id="iRole"><option value="caller">Caller</option><option value="manager">Manager</option></select>
+          <input id="iComm" placeholder="Commission % (e.g. 10)" type="number">
+        </div>
+        <button class="btn green" onclick="window.invite()">Create invite</button>
+        <p class="hint" style="margin-top:8px">Send them the invite code; they sign in here and paste it to join. Callers see only their assigned leads; managers see everything.</p>
+      </div>
+      <div class="box"><h3>THE FLOOR</h3>
+        ${S.team.length?`<table><thead><tr><th>Name</th><th>Role</th><th>Assigned</th><th>Calls (7d)</th><th>Wins</th></tr></thead><tbody>`+
+          S.team.map(t=>`<tr><td><b>${esc(t.name||'—')}</b></td><td class="hint">${esc(t.role)}</td>
+            <td>${t.assigned}</td><td>${t.calls_7d}</td><td class="fit Hot">${t.wins}</td></tr>`).join('')+
+          `</tbody></table>`:`<div class="empty">No teammates yet. Invite your first caller above — or work the floor yourself until revenue funds a hire.</div>`}
+      </div>`;
+  }
+}
+
+/* ---------- actions ---------- */
+window.assign=async(lead,staff)=>{ if(!staff)return;
+  const {error}=await supa.rpc('assign_lead',{p_lead:lead,p_staff:staff});
+  if(error)toast(error.message); else { toast('Assigned.'); load(); } };
+window.addOne=async()=>{ const biz=$('#aBiz').value.trim(); if(!biz){toast('Business name required.');return;}
+  const {error}=await supa.from('leads').insert({biz,niche:$('#aNiche').value.trim()||null,suburb:$('#aSub').value.trim()||null,
+    pain:$('#aPain').value.trim()||null,email:$('#aEmail').value.trim()||null,phone:$('#aPhone').value.trim()||null,source:'manual'});
+  if(error)toast(error.message); else { toast('Lead added.'); load(); } };
+window.invite=async()=>{ const email=$('#iEmail').value.trim(); if(!email){toast('Email required.');return;}
+  const {data,error}=await supa.rpc('invite_staff',{p_email:email,p_name:$('#iName').value.trim(),p_role:$('#iRole').value,p_commission:Number($('#iComm').value||0)});
+  if(error)toast(error.message); else { prompt('Invite created — send this code to your teammate:', data.invite_code); load(); } };
+
+let activeGuide=null;
+window.openCall=async(leadId)=>{
+  const l=S.leads.find(x=>x.id===leadId);
+  $('#callbox').innerHTML=`<div class="box"><div class="hint">Generating a tailored guide for <b>${esc(l.biz)}</b>…</div></div>`;
+  $('#callbox').scrollIntoView({behavior:'smooth'});
+  const {data,error}=await supa.functions.invoke('call-guide',{body:{lead_id:leadId}});
+  if(error||data?.error){ $('#callbox').innerHTML=`<div class="box"><div class="hint">Guide unavailable right now — call from the pain + a relevant package, and log the outcome below.</div>${outcomeButtons(leadId,null)}</div>`; return; }
+  const g=data.guide; activeGuide=JSON.stringify(g);
+  $('#callbox').innerHTML=`<div class="box guide">
+    <h3>CALL GUIDE — ${esc(l.biz)} <span class="hint" style="font-weight:400">(${esc(l.niche||'')} · ${esc(l.suburb||'')})</span></h3>
+    <h4>Opener</h4><div class="opener">${esc(g.opener||'')}</div>
+    <h4>Discovery</h4><ul>${(g.discovery||[]).map(q=>`<li>${esc(q)}</li>`).join('')}</ul>
+    <h4>Pitch</h4><p style="font-size:12.5px;color:var(--dim)">${esc(g.pitch||'')}</p>
+    <h4>Recommend</h4><p style="font-size:12px"><b style="color:var(--green)">${esc(g.recommend?.package||'')}</b> + ${esc(g.recommend?.tier||'')}</p>
+    <h4>Objections</h4>${(g.objections||[]).map(o=>`<div class="obj"><b>${esc(o.if)}</b> → ${esc(o.say)}</div>`).join('')}
+    <h4>Close on</h4><p style="font-size:12.5px;color:var(--ink)">${esc(g.close||'')}</p>
+    ${(g.donts||[]).length?`<h4 style="color:var(--red)">Don't</h4><ul>${g.donts.map(d=>`<li style="color:var(--red)">${esc(d)}</li>`).join('')}</ul>`:''}
+    <h4>Log the real outcome</h4>
+    <textarea id="callnotes" placeholder="What actually happened on the call…"></textarea>
+    ${outcomeButtons(leadId, null)}
+  </div>`;
+};
+function outcomeButtons(leadId){
+  const outs=[['no_answer','No answer',''],['callback','Callback',''],['not_interested','Not interested','dead'],
+    ['interested','Interested',''],['booked_meeting','Booked meeting','win'],['closed_won','Closed — taking to Director','win']];
+  return `<div class="outcomes">${outs.map(o=>`<button class="oc ${o[2]}" onclick="window.logCall('${leadId}','${o[0]}')">${o[1]}</button>`).join('')}</div>`;
+}
+window.logCall=async(leadId,outcome)=>{
+  const notes=($('#callnotes')?.value||'').trim();
+  const {error}=await supa.rpc('log_call',{p_lead:leadId,p_outcome:outcome,p_notes:notes,p_guide:activeGuide,p_channel:'call'});
+  if(error){toast(error.message);return;}
+  toast(outcome==='closed_won'?'Logged — now confirm + take payment in Mission Control.':'Outcome logged.');
+  $('#callbox').innerHTML=''; activeGuide=null; load();
+};
+
+const session=await ensureAuth();
+await resolveRole(session.user.id);
+shell(); await load();
+supa.channel('floor').on('postgres_changes',{event:'*',schema:'public',table:'leads'},()=>load()).subscribe();
+</script>
+</body>
+</html>

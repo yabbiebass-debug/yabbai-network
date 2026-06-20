@@ -1,0 +1,32 @@
+# YABBAI Network V2 — consolidated Python requirements
+# Install: pip install -r requirements_all.txt
+
+# ── Web framework ─────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+httpx>=0.27.0
+
+# ── Revenue System ────────────────────────────────────────
+# (no extra deps beyond fastapi/uvicorn/dotenv)
+
+# ── YABBAI Local AI ──────────────────────────────────────
+anthropic>=0.28.0
+openai>=1.30.0          # OpenRouter uses OpenAI-compatible API
+requests>=2.31.0
+psutil>=5.9.0           # hardware monitor
+
+# ── GoldScout ─────────────────────────────────────────────
+fastapi-sso>=0.9.0      # Google OAuth
+starlette>=0.37.0
+itsdangerous>=2.1.0     # session middleware
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# ── DeFi Simulator ───────────────────────────────────────
+numpy>=1.26.0
+aiohttp>=3.9.0
+
+# ── Gateway ───────────────────────────────────────────────
+# httpx already listed above

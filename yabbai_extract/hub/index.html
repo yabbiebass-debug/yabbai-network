@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI.NETWORK — the whole network, one portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.6}
+  body{background:radial-gradient(1100px 600px at 50% -10%,rgba(153,69,255,.10),transparent 60%),var(--void);min-height:100vh}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  a{text-decoration:none;color:inherit}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 22px 80px}
+  /* nav */
+  .nav{display:flex;align-items:center;gap:10px;padding:16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-family:var(--disp);font-weight:800;font-size:16px}.brand b{color:var(--purple)}
+  .brand small{display:block;font-weight:400;font-size:9px;color:var(--dim);letter-spacing:2.5px;margin-top:2px}
+  .netstat{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{font-size:9px;letter-spacing:1.5px;padding:5px 10px;border-radius:99px;border:1px solid var(--dim2);color:var(--dim);text-transform:uppercase;cursor:default}
+  .chip.on{border-color:var(--green);color:var(--green)}
+  .chip.warn{border-color:var(--amber);color:var(--amber)}
+  .chip.danger{border-color:var(--red);color:var(--red);animation:pulse 1.2s infinite}
+  .chip.btn-chip{cursor:pointer;transition:background .15s}
+  .chip.btn-chip:hover{background:rgba(255,77,109,.12)}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;box-shadow:0 0 6px var(--green)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  /* hero */
+  .hero{padding:40px 0 14px;text-align:center}
+  .hero h1{font-family:var(--disp);font-weight:800;font-size:clamp(22px,4vw,38px);line-height:1.14;letter-spacing:-.5px}
+  .hero h1 em{color:var(--green);font-style:normal}
+  .hero p{color:var(--dim);margin:14px auto 0;max-width:62ch;font-size:12px}
+  /* live strip */
+  .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:20px 0}
+  .stat{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:14px;text-align:center;position:relative}
+  .stat .v{font-family:var(--disp);font-size:18px}.stat .v.g{color:var(--green)}.stat .v.p{color:var(--purple)}.stat .v.a{color:var(--amber)}
+  .stat .l{font-size:8px;letter-spacing:2px;color:var(--dim2);text-transform:uppercase;margin-top:4px}
+  .stat .badge-real{position:absolute;top:6px;right:6px;font-size:7px;letter-spacing:.8px;padding:1px 4px;border:1px solid rgba(20,241,149,.35);color:var(--green);border-radius:3px;text-transform:uppercase}
+  /* services panel */
+  .services{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:16px;margin:16px 0}
+  .services h3{font-family:var(--disp);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);margin-bottom:12px}
+  .svcrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .svc{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:4px;padding:7px 12px;font-size:11px;background:var(--panel2)}
+  .svc .indicator{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .svc.live .indicator{background:var(--green);box-shadow:0 0 5px var(--green)}
+  .svc.offline .indicator{background:var(--dim2)}
+  .svc.checking .indicator{background:var(--amber);animation:pulse 1s infinite}
+  .svc .sname{font-weight:700;color:var(--ink);font-size:10px;letter-spacing:.5px}
+  .svc .sport{color:var(--dim2);font-size:9px}
+  .svc .sks{font-size:8px;color:var(--red);margin-left:4px;display:none}
+  .kill-active .svc.live .sks{display:inline}
+  .adminrow{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .adminrow input{background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:7px 10px;border-radius:3px;font-family:var(--mono);font-size:12px;flex:1;min-width:200px;max-width:320px}
+  .adminrow input:focus{border-color:var(--purple);outline:none}
+  /* civilisation map */
+  .mapwrap{border:1px solid var(--line);background:var(--panel);border-radius:6px;margin:20px 0;padding:8px;position:relative;overflow:hidden}
+  svg.civ{width:100%;height:auto;display:block}
+  .core{fill:url(#coreG)}.ring{fill:none;stroke:rgba(153,69,255,.16);stroke-width:1}
+  .agent{fill:var(--panel2);stroke:var(--purple);stroke-width:1.3;cursor:pointer;transition:all .2s}
+  .agent:hover{stroke:var(--green);stroke-width:2}
+  .alabel{font-family:var(--mono);font-size:8.5px;fill:var(--ink);text-anchor:middle;letter-spacing:.5px;pointer-events:none}
+  .arole{font-size:6.5px;fill:var(--dim);text-anchor:middle;pointer-events:none}
+  .spoke{stroke:rgba(153,69,255,.22);stroke-width:1;fill:none}
+  .pkt{fill:var(--green)}.corelabel{font-family:var(--disp);text-anchor:middle;pointer-events:none}
+  @media(prefers-reduced-motion:reduce){.pkt animateMotion{display:none}}
+  .legend{font-size:10px;color:var(--dim2);padding:6px 10px 2px;line-height:1.7;text-align:center}
+  .legend b{color:var(--green)}
+  /* routing panel */
+  .route{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:18px;margin-top:16px}
+  .route h3{font-family:var(--disp);font-size:11px;letter-spacing:1.5px;margin-bottom:10px}
+  .routeflow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}
+  .tier{border:1px solid var(--line);border-radius:4px;padding:8px 12px;font-size:11px;display:flex;align-items:center;gap:8px}
+  .tier .s{width:7px;height:7px;border-radius:50%}
+  .tier.live .s{background:var(--green);box-shadow:0 0 6px var(--green)}.tier.pending .s{background:var(--amber)}.tier.off .s{background:var(--dim2)}
+  .arrow{color:var(--dim2)}
+  .hint{font-size:10px;color:var(--dim2);line-height:1.6}
+  /* surfaces grid */
+  .sec{margin-top:28px}
+  .eyebrow{font-size:9.5px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:12px;font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .scard{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:7px;transition:all .15s;position:relative}
+  .scard:hover{border-color:var(--purple);transform:translateY(-2px)}
+  .scard.py:hover{border-color:var(--green)}
+  .scard .who{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--green)}
+  .scard h3{font-family:var(--disp);font-size:12px}.scard h3 i{font-style:normal;color:var(--purple)}
+  .scard.py h3 i{color:var(--green)}
+  .scard p{font-size:11px;color:var(--dim);flex:1;line-height:1.5}
+  .scard .go{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--purple);margin-top:2px}
+  .scard.py .go{color:var(--green)}
+  .scard.locked{opacity:.55}.scard .badge{position:absolute;top:10px;right:10px;font-size:7.5px;letter-spacing:1.5px;padding:2px 7px;border:1px solid var(--amber);color:var(--amber);border-radius:9px;text-transform:uppercase}
+  .scard .pybadge{position:absolute;top:10px;right:10px;font-size:7.5px;letter-spacing:1px;padding:2px 7px;border:1px solid rgba(20,241,149,.4);color:var(--green);border-radius:9px;text-transform:uppercase}
+  .scard .pybadge.offline{border-color:var(--dim2);color:var(--dim2)}
+  /* gate */
+  .gatewrap{min-height:70vh;display:flex;align-items:center;justify-content:center}
+  .gate{border:1px solid var(--line);background:var(--panel);padding:36px;max-width:440px;width:100%;border-radius:6px;text-align:center}
+  .gate h1{font-family:var(--disp);font-size:17px;margin-bottom:8px}.gate h1 b{color:var(--purple)}
+  .gate p{font-size:11.5px;color:var(--dim);margin-bottom:16px;line-height:1.7}
+  .gate input{width:100%;margin-bottom:10px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:11px;border-radius:3px;font-family:var(--mono)}
+  .gate input:focus{border-color:var(--purple);outline:none}
+  .btn{padding:11px 18px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;transition:all .15s}
+  .btn:hover{background:var(--purple);color:#fff}.btn.full{width:100%}
+  .btn.green{border-color:var(--green);color:var(--green)}.btn.green:hover{background:var(--green);color:#021}
+  .btn.danger{border-color:var(--red);color:var(--red)}.btn.danger:hover{background:var(--red);color:#fff}
+  .btn.sm{padding:6px 12px;font-size:9.5px}
+  footer{padding:28px 0;border-top:1px solid var(--line);margin-top:40px;font-size:10px;color:var(--dim2);line-height:1.9;text-align:center}
+  .tooltip{position:fixed;background:var(--panel2);border:1px solid var(--purple);border-radius:4px;padding:8px 12px;font-size:11px;pointer-events:none;z-index:50;display:none;max-width:240px;line-height:1.5}
+  .tooltip b{color:var(--green)}
+  .divider{height:1px;background:var(--line);margin:6px 0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="tooltip" id="tip"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ══════════════════════════════════════════════════════════
+   CONFIG — paste your values, then deploy
+   ══════════════════════════════════════════════════════════ */
+const SUPABASE_URL      = 'PASTE_YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+
+// Deployed Supabase surfaces (leave blank → "coming online")
+const SURFACES = {
+  mission:  'PASTE_MISSION_CONTROL_URL',
+  os:       'PASTE_REALM_OS_URL',
+  portal:   'PASTE_PORTAL_URL',
+  floor:    'PASTE_AGENCY_FLOOR_URL',
+  vault:    'PASTE_VAULT_URL',
+  diagnose: 'PASTE_DIAGNOSE_URL',
+  studio:   'PASTE_CATALOG_STUDIO_URL',
+};
+
+// Python backends — localhost defaults; override for deployed Railway/Render URLs
+const PY = {
+  revenue:  window.REVENUE_URL  || 'http://localhost:7870',
+  ai:       window.AI_URL       || 'http://localhost:7860',
+  goldscout:window.GOLDSCOUT_URL|| 'http://localhost:8001',
+  defi:     window.DEFI_URL     || 'http://localhost:8002',
+  ops:      window.OPS_URL      || 'http://localhost:7880',
+};
+/* ═════════════════════════════════════════════════════════= */
+
+const $ = s => document.querySelector(s);
+const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ── state ── */
+const ME  = { role:null, uid:null };
+const NET = { mrr:0, cash:0, leads:0, clients:0, enq:0, diag:0, products:0, approvals:0 };
+const SVC = { revenue:{live:false,ks:false,income:0,pending:0}, ai:{live:false}, goldscout:{live:false}, defi:{live:false}, ops:{live:false} };
+let adminKey = sessionStorage.getItem('yabbai_admin_key') || '';
+let svcTimer  = null;
+
+/* ── guard ── */
+if(SUPABASE_URL.startsWith('PASTE')){
+  document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate"><h1>YABBAI<b>.</b>NETWORK</h1><p>Paste your Supabase URL + anon key into the CONFIG block at the top of hub/index.html. See README.md for setup.</p></div></div>`;
+  throw new Error('config');
+}
+const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ════════════════════════ AUTH ════════════════════════ */
+async function ensureAuth(){
+  const { data:{ session } } = await supa.auth.getSession();
+  if(session) return session;
+  document.getElementById('app').innerHTML=`
+    <div class="gatewrap"><div class="gate">
+      <h1>YABBAI<b>.</b>NETWORK</h1>
+      <p>One sign-in. Every surface — the whole network in one portal.</p>
+      <input id="em" type="email" placeholder="you@yabbai.network">
+      <button class="btn full" id="go">Send magic link</button>
+      <p style="font-size:10px;color:var(--dim2);margin-top:10px" id="msg"></p>
+    </div></div>`;
+  $('#go').onclick = async () => {
+    const e = $('#em').value.trim();
+    if(!e) return;
+    const { error } = await supa.auth.signInWithOtp({ email:e, options:{ emailRedirectTo:location.href } });
+    $('#msg').textContent = error ? error.message : 'Link sent — check your inbox.';
+  };
+  return new Promise(res => supa.auth.onAuthStateChange((_e,s) => { if(s) res(s); }));
+}
+
+/* ════════════════════ PYTHON SERVICES ════════════════════ */
+async function checkPythonService(name, url){
+  try{
+    const r = await fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) });
+    return r.ok;
+  } catch{ return false; }
+}
+
+async function loadRevenueMeta(){
+  if(!adminKey) return;
+  try{
+    const r = await fetch(`${PY.revenue}/api/status`, {
+      headers:{ 'X-Admin-Key': adminKey },
+      signal: AbortSignal.timeout(4000)
+    });
+    if(!r.ok) return;
+    const d = await r.json();
+    SVC.revenue.income  = d.truth?.real_income ?? 0;
+    SVC.revenue.pending = d.pending_approvals ?? 0;
+    SVC.revenue.ks      = d.gates?.kill_switch ?? false;
+  } catch{}
+}
+
+async function pollServices(){
+  const checks = await Promise.all([
+    checkPythonService('revenue',   PY.revenue),
+    checkPythonService('ai',        PY.ai),
+    checkPythonService('goldscout', PY.goldscout),
+    checkPythonService('defi',      PY.defi),
+    checkPythonService('ops',       PY.ops),
+  ]);
+  ['revenue','ai','goldscout','defi','ops'].forEach((k,i) => { SVC[k].live = checks[i]; });
+  if(SVC.revenue.live) await loadRevenueMeta();
+  renderServices();
+  renderStrip();
+  renderNavChips();
+}
+
+/* ══════════════════════ SUPABASE DATA ═══════════════════ */
+async function loadNet(){
+  const tryGet = async fn => { try{ return await fn(); } catch{ return null; } };
+  const [money, leads, enq, diag, cat, appr] = await Promise.all([
+    tryGet(() => supa.from('money_view').select('*').single()),
+    tryGet(() => supa.from('leads').select('*',{count:'exact',head:true}).neq('stage','Dead')),
+    tryGet(() => supa.from('enquiries').select('*',{count:'exact',head:true})),
+    tryGet(() => supa.from('diagnostics').select('*',{count:'exact',head:true})),
+    tryGet(() => supa.from('catalog_view').select('*').single()),
+    tryGet(() => supa.from('approvals').select('*',{count:'exact',head:true}).eq('status','pending')),
+  ]);
+  NET.mrr      = money?.data?.mrr || 0;
+  NET.cash     = money?.data?.cash_collected || 0;
+  NET.clients  = money?.data?.active_clients || 0;
+  NET.leads    = leads?.count || 0;
+  NET.enq      = enq?.count || 0;
+  NET.diag     = diag?.count || 0;
+  NET.products = cat?.data?.live || 0;
+  NET.approvals= appr?.count || 0;
+  renderStrip();
+  renderNavChips();
+}
+
+/* ═══════════════════════ SHELL ══════════════════════════ */
+function shell(){
+  document.getElementById('app').innerHTML = `
+  <div class="wrap">
+    <nav class="nav">
+      <div class="brand">YABBAI<b>.</b>NETWORK
+        <small>ALL SURFACES · ${esc(ME.role||'DIRECTOR')}</small>
+      </div>
+      <div class="netstat" id="netstat"></div>
+    </nav>
+
+    <div class="hero">
+      <h1>One civilisation. <em>Fifteen surfaces.</em> One brain.</h1>
+      <p>Every YABBAI surface — web and Python — under one portal. One sign-in, the twelve-agent clan, and the truth ledger that connects it all. Each surface feeds the next; the ledger funds the network.</p>
+    </div>
+
+    <div class="strip" id="strip"></div>
+
+    <!-- Python services panel -->
+    <div class="services" id="svcPanel">
+      <h3>Python Backend Services</h3>
+      <div class="svcrow" id="svcrow"></div>
+      <div class="adminrow">
+        <input type="password" id="adminKeyInput" placeholder="Python admin key (ADMIN_API_KEY)" value="${esc(adminKey)}">
+        <button class="btn sm green" onclick="saveAdminKey()">Connect backends</button>
+        ${SVC.revenue.ks ? `<button class="btn sm danger" onclick="disengageKS()">Disengage kill-switch</button>` : ''}
+      </div>
+    </div>
+
+    <!-- Civilisation map -->
+    <div class="mapwrap">
+      <svg class="civ" viewBox="0 0 780 460" role="img" aria-label="The YABBAI agent civilisation">
+        <defs>
+          <radialGradient id="coreG"><stop offset="0%" stop-color="#9945FF"/><stop offset="100%" stop-color="#5a1f99"/></radialGradient>
+        </defs>
+        <circle class="ring" cx="390" cy="230" r="120"/>
+        <circle class="ring" cx="390" cy="230" r="180"/>
+        <g id="spokes"></g>
+        <g id="packets"></g>
+        <circle class="core" cx="390" cy="230" r="48" filter="drop-shadow(0 0 20px rgba(153,69,255,.65))"/>
+        <text class="corelabel" x="390" y="224" font-size="13" font-weight="800" fill="#fff">BRAIN</text>
+        <text class="corelabel" x="390" y="242" font-size="7.5" fill="rgba(255,255,255,.8)" id="engineLabel">routing…</text>
+        <g id="agents"></g>
+      </svg>
+      <div class="legend">The <b>clan</b> — twelve agents, one routed brain. SCOUT→QUALIFIER→PITCHER→CALLER→close. DIAGNOST + CONFIGURATOR pull inbound. AUDITOR keeps the catalog clean. TREASURER reads the money. Revenue System, Local AI, GoldScout, DeFi, and Ops Cockpit run as Python backends — same clan, same network, same ledger.</div>
+    </div>
+
+    <!-- Routing panel -->
+    <div class="route" id="routePanel"></div>
+
+    <!-- Web surfaces -->
+    <div class="sec">
+      <div class="eyebrow">Web Surfaces — Supabase · magic-link auth</div>
+      <div class="grid" id="webSurfaces"></div>
+    </div>
+
+    <!-- Python surfaces -->
+    <div class="sec">
+      <div class="eyebrow">Python Backends — local · Railway · Render · Fly</div>
+      <div class="grid" id="pySurfaces"></div>
+    </div>
+
+    <footer>YABBAI.NETWORK · BASHAM Automations, Melbourne · One network, fifteen surfaces, twelve agents, one brain, one truth ledger. Routing: Anthropic → OpenRouter → local Ollama, self-healing. Real data, real gates, real money — agents run the machine, the Director holds the keys.<br>Revenue System v1.1 · Truth protocol · Capital gates · No autonomous money movement.</footer>
+  </div>`;
+  buildCiv();
+  renderServices();
+  renderStrip();
+  renderNavChips();
+  renderRoutePanel();
+  renderWebSurfaces();
+  renderPySurfaces();
+}
+
+/* ═══════════════════ RENDER FUNCTIONS ═══════════════════ */
+function renderNavChips(){
+  const ks   = SVC.revenue.ks;
+  const pend = (NET.approvals||0) + (SVC.revenue.pending||0);
+  let html = `
+    <span class="chip on"><span class="dot"></span>${NET.clients} clients</span>
+    <span class="chip on">${AUD(NET.mrr)}/mo</span>`;
+  if(SVC.revenue.live){
+    html += `<span class="chip on">rev: ${AUD(SVC.revenue.income)}</span>`;
+  }
+  if(pend > 0){
+    html += `<span class="chip warn">${pend} to approve</span>`;
+  }
+  if(ks){
+    html += `<span class="chip danger btn-chip" onclick="disengageKS()">🛑 KILL SWITCH</span>`;
+  }
+  html += `<span class="chip btn-chip danger" onclick="engageKS()" title="Engage revenue kill-switch">🛑</span>`;
+  const el = document.getElementById('netstat');
+  if(el) el.innerHTML = html;
+}
+
+function renderStrip(){
+  const el = document.getElementById('strip');
+  if(!el) return;
+  el.innerHTML = `
+    <div class="stat"><div class="v g">${AUD(NET.mrr)}</div><div class="l">MRR /mo</div></div>
+    <div class="stat"><div class="v">${AUD(NET.cash)}</div><div class="l">Cash collected</div></div>
+    <div class="stat">
+      <div class="v g">${AUD(SVC.revenue.income)}</div>
+      <div class="l">Reconciled income</div>
+      <span class="badge-real">verified</span>
+    </div>
+    <div class="stat"><div class="v p">${NET.leads}</div><div class="l">Open leads</div></div>
+    <div class="stat"><div class="v">${NET.enq}</div><div class="l">Widget enquiries</div></div>
+    <div class="stat"><div class="v">${NET.diag}</div><div class="l">Fix-plans run</div></div>
+    <div class="stat"><div class="v p">${NET.products}</div><div class="l">Products live</div></div>
+    <div class="stat"><div class="v ${(NET.approvals+SVC.revenue.pending)>0?'a':''}">${NET.approvals + SVC.revenue.pending}</div><div class="l">Pending approvals</div></div>`;
+}
+
+function renderServices(){
+  const el = document.getElementById('svcrow');
+  if(!el) return;
+  const svcs = [
+    { k:'revenue',   label:'Revenue',   port:7870 },
+    { k:'ai',        label:'YABBAI AI', port:7860 },
+    { k:'goldscout', label:'GoldScout', port:8001 },
+    { k:'defi',      label:'DeFi Sim',  port:8002 },
+    { k:'ops',       label:'Ops',       port:7880 },
+  ];
+  el.innerHTML = svcs.map(s => {
+    const state = SVC[s.k].live ? 'live' : (adminKey ? 'offline' : 'checking');
+    return `<div class="svc ${state}">
+      <span class="indicator"></span>
+      <span class="sname">${s.label}</span>
+      <span class="sport">:${s.port}</span>
+      ${s.k==='revenue'&&SVC.revenue.ks?'<span style="color:var(--red);font-size:9px">KILL-SW</span>':''}
+    </div>`;
+  }).join('');
+  // re-render admin row kill-switch button
+  const btn = document.querySelector('.btn.sm.danger');
+  if(SVC.revenue.ks && !btn){
+    const row = document.querySelector('.adminrow');
+    if(row){
+      const b = document.createElement('button');
+      b.className='btn sm danger';b.textContent='Disengage kill-switch';b.onclick=disengageKS;
+      row.appendChild(b);
+    }
+  } else if(!SVC.revenue.ks && btn){
+    btn.remove();
+  }
+}
+
+function renderRoutePanel(){
+  const el = document.getElementById('routePanel');
+  if(!el) return;
+  el.innerHTML = `
+    <h3>THE ROUTED BRAIN — self-healing, three tiers</h3>
+    <div class="routeflow">
+      <div class="tier live"><span class="s"></span>Anthropic (primary)</div>
+      <span class="arrow">→</span>
+      <div class="tier pending"><span class="s"></span>OpenRouter (set key to activate)</div>
+      <span class="arrow">→</span>
+      <div class="tier off"><span class="s"></span>Ollama local (fallback)</div>
+    </div>
+    <p class="hint">Every agent calls one proxy; it tries each tier until one answers — the clan never goes dark. Set <code>OPENROUTER_API_KEY</code> + <code>OPENROUTER_MODEL</code> in Supabase secrets to activate the middle tier. Reorder tiers with <code>AI_ROUTE</code>. Python backends route through <code>yabbai_local</code> on port 7860 which uses the same model pool.</p>`;
+  const el2 = document.getElementById('engineLabel');
+  if(el2) el2.textContent = 'Anthropic→OR→local';
+}
+
+function renderWebSurfaces(){
+  const el = document.getElementById('webSurfaces');
+  if(!el) return;
+  const list = [
+    { k:'mission', who:'Director', t:'Mission Control',   d:'The cockpit — pipeline, agent cycles, the three gates (outreach · contract · ship), money.' },
+    { k:'os',      who:'Director', t:'Realm OS',           d:'Live ecosystem map, surface launcher, widget forge, enquiry stream.' },
+    { k:'floor',   who:'Director · Manager · Caller', t:'Agency Floor', d:'Import real leads, assign, per-lead AI call guides, log outcomes.' },
+    { k:'studio',  who:'Director', t:'Catalog Studio',    d:'Ideate → AI audit → list. Build toward 50 products, never sell air.' },
+    { k:'portal',  who:'Clients',  t:'Realm Portal',      d:'Brief in plain words → catalog-bound scope → pay → track build + ledger.' },
+    { k:'vault',   who:'Buyers',   t:'The Vault',         d:'Template store — every product configures itself to the buyer.' },
+    { k:'diagnose',who:'Everyone', t:'Free Fix-Plan',     d:'The seed — anyone runs it, gets a real plan, shares it, converts.' },
+  ];
+  el.innerHTML = list.map(s => {
+    const url = SURFACES[s.k];
+    const live = url && !url.startsWith('PASTE');
+    return live
+      ? `<a class="scard" href="${esc(url)}" target="_blank" rel="noopener">
+           <span class="who">${esc(s.who)}</span><h3><i>▸</i> ${esc(s.t)}</h3>
+           <p>${esc(s.d)}</p><span class="go">enter →</span></a>`
+      : `<div class="scard locked"><span class="badge">coming online</span>
+           <span class="who">${esc(s.who)}</span><h3><i>▸</i> ${esc(s.t)}</h3>
+           <p>${esc(s.d)}</p><span class="go" style="color:var(--dim2)">paste URL in hub config</span></div>`;
+  }).join('');
+}
+
+function renderPySurfaces(){
+  const el = document.getElementById('pySurfaces');
+  if(!el) return;
+  const list = [
+    { k:'revenue',   url:PY.revenue,              who:'Director', t:'Revenue System',   port:'7870',
+      d:'Truth protocol · reconciled income only · capital gates (LOW/MED/HIGH) · kill-switch · 3 channels · EV orchestrator · compliance gate.' },
+    { k:'ai',        url:`${PY.ai}/unified`,       who:'Director', t:'YABBAI AI',         port:'7860',
+      d:'Routed brain · autonomous agents · coding brain · multi-agent team · model pool · learning · hardware · Ollama · IDE.' },
+    { k:'goldscout', url:PY.goldscout,             who:'Director', t:'GoldScout',         port:'8001',
+      d:'DeFi opportunity scanner · airdrop finder · quest tracker · testnet alerts · AI scam analysis · safety scoring.' },
+    { k:'defi',      url:`${PY.defi}/dashboard`,   who:'Director', t:'DeFi Simulator',    port:'8002',
+      d:'Paper trading engine · strategy backtests · risk gate · live price feeds · routing engine. Paper-only — no live trades on this deployment.' },
+    { k:'ops',       url:PY.ops,                   who:'Director', t:'Ops Cockpit',        port:'7880',
+      d:'Truth protocol v1 · compliance gate · decision engine · ops dashboard. Feeds into the Revenue System spine.' },
+  ];
+  el.innerHTML = list.map(s => {
+    const live = SVC[s.k].live;
+    const openUrl = adminKey ? `${s.url}${s.url.includes('?')?'&':'#'}ak=${encodeURIComponent(adminKey)}` : s.url;
+    return live
+      ? `<a class="scard py" href="${esc(openUrl)}" target="_blank" rel="noopener">
+           <span class="pybadge">live · :${s.port}</span>
+           <span class="who">${esc(s.who)}</span><h3><i>▸</i> ${esc(s.t)}</h3>
+           <p>${esc(s.d)}</p><span class="go">open →</span></a>`
+      : `<div class="scard py locked">
+           <span class="pybadge offline">offline · :${s.port}</span>
+           <span class="who">${esc(s.who)}</span><h3><i>▸</i> ${esc(s.t)}</h3>
+           <p>${esc(s.d)}</p>
+           <span class="go" style="color:var(--dim2)">start backend → connect</span>
+         </div>`;
+  }).join('');
+}
+
+/* ═══════════════════ CIVILISATION MAP ═══════════════════ */
+const CLAN = [
+  {id:'SCOUT',role:'finds leads'},{id:'QUALIFIER',role:'scores fit'},
+  {id:'PITCHER',role:'drafts outreach'},{id:'CALLER',role:'works floor'},
+  {id:'BUILDER',role:'clones systems'},{id:'SHIPPER',role:'hands over'},
+  {id:'SUPPORTER',role:'guards churn'},{id:'DIAGNOST',role:'fix-plans'},
+  {id:'CONFIGURATOR',role:'tailors templates'},{id:'AUDITOR',role:'white-hat'},
+  {id:'TREASURER',role:'reads money'},{id:'FORGE',role:'build-vs-buy'},
+];
+function buildCiv(){
+  const cx=390,cy=230,r=153;
+  const ag=$('#agents'),sp=$('#spokes'),pk=$('#packets');
+  CLAN.forEach((a,i)=>{
+    const ang=(i/CLAN.length)*Math.PI*2 - Math.PI/2;
+    const x=cx+r*Math.cos(ang),y=cy+r*Math.sin(ang);
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',cx);line.setAttribute('y1',cy);line.setAttribute('x2',x);line.setAttribute('y2',y);
+    line.setAttribute('class','spoke');sp.appendChild(line);
+    const pkt=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    pkt.setAttribute('r','2.5');pkt.setAttribute('class','pkt');
+    const am=document.createElementNS('http://www.w3.org/2000/svg','animateMotion');
+    am.setAttribute('dur',(4+i*0.35)+'s');am.setAttribute('repeatCount','indefinite');
+    am.setAttribute('path',`M${cx},${cy} L${x},${y}`);
+    pkt.appendChild(am);pk.appendChild(pkt);
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('transform',`translate(${x},${y})`);
+    g.innerHTML=`<circle class="agent" r="29"></circle>
+      <text class="alabel" y="-1">${a.id}</text>
+      <text class="arole" y="10">${a.role}</text>`;
+    g.addEventListener('mousemove',e=>{const t=$('#tip');t.style.display='block';t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY+14)+'px';t.innerHTML=`<b>${a.id}</b> — ${a.role}. Part of the clan; hands work to the next agent and reports to the brain.`;});
+    g.addEventListener('mouseleave',()=>{$('#tip').style.display='none';});
+    ag.appendChild(g);
+  });
+}
+
+/* ═══════════════════ ACTIONS ════════════════════════════ */
+window.saveAdminKey = function(){
+  adminKey = document.getElementById('adminKeyInput')?.value?.trim() || '';
+  sessionStorage.setItem('yabbai_admin_key', adminKey);
+  pollServices();
+};
+
+window.engageKS = async function(){
+  if(!adminKey){ alert('Connect Python backends first (enter admin key above).'); return; }
+  if(!confirm('Engage the kill-switch? This halts ALL revenue channel activity.')) return;
+  try{
+    await fetch(`${PY.revenue}/api/kill-switch`, { method:'POST', headers:{'X-Admin-Key':adminKey} });
+    SVC.revenue.ks = true;
+    renderServices(); renderNavChips();
+  } catch(e){ alert('Could not reach Revenue System: ' + e); }
+};
+
+window.disengageKS = async function(){
+  if(!adminKey){ alert('Connect Python backends first.'); return; }
+  if(!confirm('Disengage kill-switch? Revenue channel activity will resume.')) return;
+  try{
+    await fetch(`${PY.revenue}/api/kill-switch/disengage`, { method:'POST', headers:{'X-Admin-Key':adminKey} });
+    SVC.revenue.ks = false;
+    renderServices(); renderNavChips();
+  } catch(e){ alert('Could not reach Revenue System: ' + e); }
+};
+
+/* ═══════════════════ BOOT ═══════════════════════════════ */
+const session = await ensureAuth();
+try{
+  const { data:st } = await supa.from('staff').select('role').eq('user_id',session.user.id).maybeSingle();
+  ME.role = st?.role || 'director';
+} catch{ ME.role = 'director'; }
+ME.uid = session.user.id;
+
+shell();
+await Promise.all([ loadNet(), pollServices() ]);
+
+// Realtime subscriptions
+supa.channel('hub')
+  .on('postgres_changes',{event:'*',schema:'public',table:'approvals'},()=>loadNet())
+  .on('postgres_changes',{event:'*',schema:'public',table:'leads'},()=>loadNet())
+  .subscribe();
+
+// Poll Python backends every 60s
+svcTimer = setInterval(pollServices, 60_000);
+</script>
+</body>
+</html>

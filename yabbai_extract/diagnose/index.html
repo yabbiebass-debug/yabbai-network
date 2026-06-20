@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stuck on an AI or tech project? Get a free fix-plan in 2 minutes — YABBAI</title>
+<meta name="description" content="Free AI/tech diagnostic for builders, vibe-coders, startups and small businesses. Tell us what you're stuck on; get a personalized fix-plan instantly.">
+<meta property="og:title" content="Free AI/Tech Fix-Plan — YABBAI">
+<meta property="og:description" content="Tell us what you're building and where it's stuck. Get a real, personalized plan in 2 minutes — free.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:14px;line-height:1.65}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  input,textarea,select{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    padding:11px 13px;border-radius:3px;font-size:13px;width:100%}
+  textarea{min-height:96px;resize:vertical}
+  .wrap{max-width:680px;margin:0 auto;padding:0 22px 70px}
+  .nav{padding:16px 0;border-bottom:1px solid var(--line)}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}.brand b{color:var(--purple)}
+  .hero{padding:44px 0 26px;text-align:center}
+  .hero h1{font-family:var(--disp);font-weight:800;font-size:clamp(23px,4vw,34px);line-height:1.18}
+  .hero h1 em{color:var(--green);font-style:normal}
+  .hero p{color:var(--dim);margin-top:14px;max-width:52ch;margin-left:auto;margin-right:auto}
+  .seg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:22px 0}
+  .segbtn{border:1px solid var(--line);background:var(--panel);padding:16px;border-radius:4px;text-align:left;transition:border-color .15s}
+  .segbtn:hover{border-color:var(--purple)} .segbtn.on{border-color:var(--green);background:rgba(20,241,149,.05)}
+  .segbtn b{font-family:var(--disp);font-size:12px;display:block} .segbtn span{font-size:11px;color:var(--dim)}
+  .card{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:22px;margin-top:8px}
+  .card h3{font-family:var(--disp);font-size:13px;margin-bottom:6px}
+  .qa .turn{margin-bottom:13px}.qa .q{font-size:14px;margin-bottom:3px}.qa .why{font-size:10px;color:var(--dim2)}
+  .qa .a{color:var(--green);font-size:12.5px;margin-top:4px}
+  .row{display:flex;gap:8px;margin-top:8px}.row input{flex:1}
+  .btn{padding:12px 20px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:11px;
+    letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;transition:all .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .btn.green{border-color:var(--green);color:var(--green)} .btn.green:hover{background:var(--green);color:#021}
+  .btn.primary{background:var(--purple);color:#fff;width:100%}
+  .btn[disabled]{opacity:.5;cursor:wait}
+  .plan{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:22px;margin-top:14px;
+    font-size:13px;line-height:1.8;white-space:pre-wrap}
+  .share{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center}
+  .share input{flex:1;min-width:200px;font-size:11px}
+  .pulse{color:var(--purple);font-size:12px}
+  .hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+  .cta{border:1px solid var(--purple);background:linear-gradient(180deg,rgba(153,69,255,.08),transparent);
+    border-radius:4px;padding:18px;margin-top:14px}
+  .cta h4{font-family:var(--disp);font-size:12px;margin-bottom:6px}
+  .cta p{font-size:12px;color:var(--dim);margin-bottom:10px}
+  footer{padding:30px 0;border-top:1px solid var(--line);margin-top:40px;font-size:10px;color:var(--dim2);line-height:1.8}
+  @media(max-width:560px){.seg{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav"><div class="brand">YABBAI <b>//</b> FIX-PLAN</div></nav>
+  <div id="main"></div>
+  <footer>
+    Free diagnostic by BASHAM Automations, Melbourne. Your plan is generated from your own
+    answers and is general guidance — not legal, financial, medical or security advice.
+    We don't store anything you don't submit, and we never contact you unless you give an email.
+  </footer>
+</div>
+<input class="hp" id="hp" tabindex="-1" autocomplete="off">
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const SUPABASE_URL='PASTE_YOUR_SUPABASE_URL', SUPABASE_ANON_KEY='PASTE_YOUR_ANON_KEY';
+const VAULT_URL='PASTE_VAULT_URL';   // where the done-for-you options live
+const FN = SUPABASE_URL.startsWith('PASTE')?'':SUPABASE_URL+'/functions/v1/diagnose';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+if(SUPABASE_URL.startsWith('PASTE')){ $('#main').innerHTML='<p class="pulse">Config needed: paste Supabase URL + anon key (and Vault URL) at the top of this file. See README_INBOUND.md.</p>'; throw new Error('config'); }
+const supa=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+
+const SEGMENTS=[
+  ['hobbyist','Hobbyist / tinkerer','Building for fun or learning'],
+  ['vibecoder','Vibe-coder','Shipping with AI, light on fundamentals'],
+  ['startup','Startup / founder','Building a product or company'],
+  ['smallbiz','Small business','Want automation or IT sorted'],
+];
+const state={ seg:null, situation:'', qa:[], pending:null };
+
+// shareable result link?
+const params=new URLSearchParams(location.search);
+if(params.get('r')){ showShared(params.get('r')); } else { intro(); }
+
+function intro(){
+  $('#main').innerHTML=`
+  <div class="hero">
+    <h1>Stuck on an AI or tech project? <em>Get a free fix-plan.</em></h1>
+    <p>Tell us what you're building and where it's jammed. In about two minutes you'll have a real, personalized plan — no signup, no catch. Built for anyone: first-timers, vibe-coders, founders, businesses.</p>
+  </div>
+  <div class="seg" id="seg">${SEGMENTS.map(s=>`<button class="segbtn" data-s="${s[0]}"><b>${s[1]}</b><span>${s[2]}</span></button>`).join('')}</div>
+  <div class="card" id="startcard" style="display:none">
+    <h3>What are you building, and where's it stuck?</h3>
+    <textarea id="sit" placeholder="e.g. I'm building a Discord bot with the Claude API. It replies fine locally but throws a 401 once deployed to Railway and I can't work out why."></textarea>
+    <button class="btn green" id="startBtn" style="margin-top:10px">Diagnose it →</button>
+  </div>`;
+  document.querySelectorAll('.segbtn').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.segbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); state.seg=b.dataset.s; $('#startcard').style.display='block';
+    $('#sit').focus();
+  });
+  $('#startBtn').onclick=()=>{ const v=$('#sit').value.trim(); if(v.length<8){alert('Give us a sentence or two to work with.');return;}
+    state.situation=v; if(!state.seg) state.seg='other'; askNext(); };
+}
+
+async function call(body){ body.website=$('#hp').value;
+  const r=await fetch(FN,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); return r.json(); }
+
+async function askNext(){
+  $('#main').innerHTML=`<div class="card"><div class="pulse">Reading your situation…</div></div>`;
+  const j=await call({action:'next',segment:state.seg,situation:state.situation,qa:state.qa});
+  if(j.done||state.qa.length>=5){ finalForm(); return; }
+  state.pending=j; renderQA();
+}
+function renderQA(){
+  $('#main').innerHTML=`<div class="card qa">
+    <h3>A couple of quick questions</h3>
+    ${state.qa.map(t=>`<div class="turn"><div class="q">${esc(t.q)}</div><div class="a">→ ${esc(t.a)}</div></div>`).join('')}
+    <div class="turn"><div class="q">${esc(state.pending.question)}</div>${state.pending.why?`<div class="why">${esc(state.pending.why)}</div>`:''}</div>
+    <div class="row"><input id="ans" placeholder="Your answer…" maxlength="500"><button class="btn green" id="send">Next</button></div>
+    ${state.qa.length>=1?`<button class="btn" id="skip" style="margin-top:10px;border-color:var(--dim2);color:var(--dim)">Skip ahead — give me the plan</button>`:''}
+  </div>`;
+  const submit=()=>{ const v=$('#ans').value.trim(); if(!v)return; state.qa.push({q:state.pending.question,a:v}); state.pending=null; askNext(); };
+  $('#send').onclick=submit; $('#ans').addEventListener('keydown',e=>{if(e.key==='Enter')submit()}); $('#ans').focus();
+  const sk=$('#skip'); if(sk) sk.onclick=finalForm;
+}
+function finalForm(){
+  $('#main').innerHTML=`<div class="card">
+    <h3>Your plan's ready to generate</h3>
+    <p style="color:var(--dim);font-size:12.5px">Want it emailed too (and a heads-up if there's a done-for-you fix)? Drop your email — optional.</p>
+    <div class="row" style="margin-top:10px"><input id="em" type="email" placeholder="you@email.com (optional)"></div>
+    <button class="btn primary" id="gen" style="margin-top:12px">Generate my free fix-plan</button>
+  </div>`;
+  $('#gen').onclick=async()=>{ const btn=$('#gen'); btn.disabled=true; btn.textContent='Writing your plan…';
+    const j=await call({action:'final',segment:state.seg,situation:state.situation,qa:state.qa,email:$('#em').value.trim()});
+    if(!j.ok){ btn.disabled=false; btn.textContent='Generate my free fix-plan'; alert('Hiccup — try once more.'); return; }
+    showPlan(j.plan, j.share_id);
+  };
+}
+function showPlan(plan, shareId){
+  const link = location.origin+location.pathname+'?r='+encodeURIComponent(shareId);
+  $('#main').innerHTML=`
+    <div class="card"><h3>Your personalized fix-plan</h3>
+      <div class="plan">${esc(plan)}</div>
+      <div class="share">
+        <input id="sl" value="${esc(link)}" readonly>
+        <button class="btn green" id="copy">Copy share link</button>
+      </div>
+      <p style="font-size:10.5px;color:var(--dim2);margin-top:8px">Share it with anyone stuck on the same thing — the seed spreads.</p>
+    </div>
+    <div class="cta">
+      <h4>Want it just… handled?</h4>
+      <p>If you'd rather not DIY, there are fixed-price options — a 30-min live unstuck session, a full project rescue, or an automation audit.</p>
+      <a href="${esc(VAULT_URL)}" target="_blank" rel="noopener"><button class="btn">See done-for-you options →</button></a>
+    </div>
+    <button class="btn" id="again" style="margin-top:14px;width:100%;border-color:var(--dim2);color:var(--dim)">Diagnose another project</button>`;
+  $('#copy').onclick=()=>{ $('#sl').select(); document.execCommand('copy'); $('#copy').textContent='Copied!'; setTimeout(()=>$('#copy').textContent='Copy share link',1500); };
+  $('#again').onclick=intro;
+}
+async function showShared(rid){
+  $('#main').innerHTML=`<div class="card"><div class="pulse">Loading shared fix-plan…</div></div>`;
+  const j=await call({share_id:rid});
+  if(!j.ok){ intro(); return; }
+  $('#main').innerHTML=`
+    <div class="hero"><h1>A shared <em>fix-plan</em></h1><p>Someone shared this YABBAI diagnostic. Got your own stuck project? Run a fresh one free below.</p></div>
+    <div class="card"><h3>The situation</h3><p style="color:var(--dim);font-size:12.5px">${esc(j.result.situation)}</p>
+      <div class="plan" style="margin-top:12px">${esc(j.result.fix_plan)}</div></div>
+    <button class="btn primary" id="mine" style="margin-top:14px">Diagnose MY project free →</button>`;
+  $('#mine').onclick=intro;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI Revenue System</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Unbounded:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{--void:#020814;--void-2:#060e20;--void-3:#0d1a35;--sol-purple:#9945FF;
+--sol-green:#14F195;--amber:#F5A623;--danger:#ef4444;--white:#e8f0ff;--muted:#4a6080;
+--border-glow:rgba(153,69,255,0.35);--font-mono:'JetBrains Mono',monospace;--font-display:'Unbounded',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono);background:var(--void);color:var(--white);min-height:100vh;
+font-size:13px;padding:20px 24px;background-image:radial-gradient(circle at 15% 5%,rgba(153,69,255,0.06),transparent 40%)}
+h1{font-family:var(--font-display);font-size:22px;margin-bottom:4px}
+h1 span{color:var(--sol-purple)}
+.sub{color:var(--muted);font-size:11px}
+.keyrow{display:flex;gap:8px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:20px}
+.card{background:var(--void-2);border:1px solid var(--border-glow);border-radius:8px;padding:16px}
+.card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
+.card .val{font-family:var(--font-display);font-size:22px;line-height:1.1}
+.card .sub{margin-top:4px}
+.green{color:var(--sol-green)}.purple{color:var(--sol-purple)}.amber{color:var(--amber)}.red{color:var(--danger)}
+.section{font-family:var(--font-display);font-size:11px;text-transform:uppercase;letter-spacing:0.12em;
+color:var(--muted);margin:22px 0 10px;display:flex;align-items:center;gap:10px}
+.section::after{content:'';flex:1;height:1px;background:var(--border-glow)}
+input,textarea,select{background:var(--void-3);border:1px solid var(--border-glow);color:var(--white);
+font-family:inherit;border-radius:4px;padding:7px 10px;font-size:12px;outline:none}
+input:focus,textarea:focus{border-color:var(--sol-purple)}
+.btn{background:transparent;border:1px solid var(--sol-purple);color:var(--sol-purple);
+font-family:inherit;font-size:11px;text-transform:uppercase;padding:7px 14px;border-radius:5px;cursor:pointer;transition:background 0.15s}
+.btn:hover{background:rgba(153,69,255,0.15)}
+.btn-green{border-color:var(--sol-green);color:var(--sol-green)}
+.btn-green:hover{background:rgba(20,241,149,0.1)}
+.btn-amber{border-color:var(--amber);color:var(--amber)}
+.btn-amber:hover{background:rgba(245,166,35,0.1)}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.btn-danger:hover{background:rgba(239,68,68,0.1)}
+.btn-sm{padding:4px 10px;font-size:10px}
+.out{margin-top:10px;font-size:12px;line-height:1.6;white-space:pre-wrap;display:none}
+.out.show{display:block}
+.pending{background:var(--void-3);border:1px solid var(--amber);border-radius:6px;padding:12px;margin-bottom:8px;font-size:12px}
+.pending-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.pending-body{color:var(--muted);font-size:11px;margin-bottom:8px;word-break:break-all}
+.pending-actions{display:flex;gap:6px}
+.honest{font-size:11px;color:var(--muted);font-style:italic;line-height:1.6;margin-top:16px;
+border-top:1px solid var(--void-3);padding-top:14px}
+.channels{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.05em}
+.badge-gap{background:rgba(239,68,68,0.15);color:var(--danger);border:1px solid rgba(239,68,68,0.3)}
+.badge-real{background:rgba(20,241,149,0.1);color:var(--sol-green);border:1px solid rgba(20,241,149,0.3)}
+.badge-est{background:rgba(245,166,35,0.1);color:var(--amber);border:1px solid rgba(245,166,35,0.3)}
+.badge-kill{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid var(--danger);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.gap-item{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:5px;
+padding:8px 12px;font-size:11px;color:var(--danger);margin-bottom:6px}
+.audit-row{font-size:11px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;gap:10px;align-items:baseline}
+.audit-ts{color:var(--muted);flex-shrink:0;width:160px}
+.audit-kind{color:var(--sol-purple);flex-shrink:0;width:120px}
+.audit-outcome{flex-shrink:0;width:90px}
+.audit-detail{color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ledger-row{font-size:11px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:grid;gap:8px;
+grid-template-columns:160px 80px 100px 80px 1fr}
+.tab-bar{display:flex;gap:2px;margin-bottom:12px}
+.tab{padding:5px 14px;border:1px solid var(--void-3);border-radius:4px;cursor:pointer;font-size:11px;color:var(--muted)}
+.tab.active{border-color:var(--sol-purple);color:var(--sol-purple);background:rgba(153,69,255,0.08)}
+.pane{display:none}.pane.active{display:block}
+#refreshBar{font-size:10px;color:var(--muted);margin-left:auto}
+.kill-engaged .card{border-color:var(--danger)!important}
+</style>
+</head>
+<body>
+<h1>YABBAI <span>REVENUE SYSTEM</span></h1>
+<div class="sub" style="margin-bottom:16px">Truth protocol · 3 channels · EV orchestrator · human-gated actions · kill-switch · v1.1</div>
+
+<div class="keyrow">
+  <input id="adminKey" type="password" placeholder="admin key" style="width:200px">
+  <button class="btn" onclick="connect()">Connect</button>
+  <button class="btn btn-danger" onclick="killSwitch()">🛑 Kill Switch</button>
+  <button class="btn btn-amber" id="disengageBtn" onclick="disengageKillSwitch()" style="display:none">⚡ Disengage</button>
+  <span id="connStatus" class="sub" style="margin:0"></span>
+  <span id="refreshBar"></span>
+</div>
+
+<!-- ── KPIs ── -->
+<div class="section">Core KPIs</div>
+<div class="grid" id="kpiGrid">
+  <div class="card"><div class="label">Reconciled Income</div><div class="val green" id="income">—</div><div class="sub">processor-verified · reconciled=true</div></div>
+  <div class="card"><div class="label">Net Profit</div><div class="val green" id="netProfit">—</div><div class="sub">income − expenses (real only)</div></div>
+  <div class="card"><div class="label">Pending Approvals</div><div class="val amber" id="pendCount">—</div><div class="sub">money / irreversible / outreach</div></div>
+  <div class="card"><div class="label">Daily Spend</div><div class="val" id="dailySpend">—</div><div class="sub" id="dailyCap"></div></div>
+  <div class="card"><div class="label">Kill Switch</div><div class="val" id="killState">—</div><div class="sub" id="killSub"></div></div>
+  <div class="card"><div class="label">Trading Signer</div><div class="val purple" style="font-size:12px" id="signer">NoKeySigner</div><div class="sub">live trading disabled by default</div></div>
+</div>
+
+<!-- ── DATA GAPS ── -->
+<div class="section">Data Gaps</div>
+<div id="gapList"><div class="sub" style="padding:4px 0">Loading…</div></div>
+
+<!-- ── CHANNELS ── -->
+<div class="section">Channel Scorecards</div>
+<div class="channels" id="channels"><div class="sub">Connect to load.</div></div>
+
+<div class="keyrow" style="margin-top:14px">
+  <button class="btn btn-green" onclick="runCycle()">▶ Run one orchestrator cycle</button>
+  <span class="sub" style="margin:0">Observes channels → scores by EV → queues actions for approval</span>
+</div>
+<div id="cycleOut" class="out"></div>
+
+<!-- ── PENDING APPROVAL QUEUE ── -->
+<div class="section">Pending Your Approval</div>
+<div id="pendingList"><div class="sub">Nothing queued, or not connected.</div></div>
+
+<!-- ── COMPLIANCE ── -->
+<div class="section">Compliance — Check Copy Before Publishing</div>
+<div class="card">
+  <textarea id="copyText" placeholder="Paste marketing copy to scan for banned claims (income promises, fake scarcity, risk-free, etc.)…" style="width:100%;height:60px;resize:vertical"></textarea>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+    <button class="btn" onclick="checkCopy()">Scan claims</button>
+    <span class="sub">Blocks guaranteed returns · fake scarcity · unverified metrics</span>
+  </div>
+  <div id="copyOut" class="out"></div>
+</div>
+
+<!-- ── MANUAL SALE INJECTION ── -->
+<div class="section">Manual Sale (Testing / Non-Webhook Flows)</div>
+<div class="card">
+  <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+    <input id="mSaleId" placeholder="sale_id (unique)" style="width:100%">
+    <input id="mProduct" placeholder="product name" style="width:100%">
+    <input id="mGross" placeholder="gross_usd" type="number" step="0.01" style="width:100%">
+    <input id="mFee" placeholder="fee_usd" type="number" step="0.01" value="0" style="width:100%">
+  </div>
+  <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+    <button class="btn btn-green" onclick="manualSale()">Book confirmed sale</button>
+    <span class="sub">Records as reconciled income (payment_processor source)</span>
+  </div>
+  <div id="manualOut" class="out"></div>
+</div>
+
+<!-- ── TABS: LEDGER / AUDIT ── -->
+<div class="section">Ledger &amp; Audit Log</div>
+<div class="tab-bar">
+  <div class="tab active" onclick="showTab('ledger',this)">Truth Ledger</div>
+  <div class="tab" onclick="showTab('audit',this)">Gate Audit</div>
+</div>
+
+<div id="ledger" class="pane active">
+  <div id="ledgerContent"><div class="sub">Connect to load.</div></div>
+</div>
+<div id="audit" class="pane">
+  <div id="auditContent"><div class="sub">Connect to load.</div></div>
+</div>
+
+<div class="honest">
+  This is honest operational infrastructure. Every money-touching or irreversible action — including any real trade — is queued for your approval.
+  The trading signer is <strong>NoKeySigner</strong> by default: it refuses to trade until you inject your own audited signer on your machine.
+  Reconciled income = payment_processor source AND reconciled=true. Estimates and projections are advisory only — never summed into real totals.
+  A DATA GAP means a required input is missing; the affected decision halts rather than fabricating a number.
+</div>
+
+<script>
+const API='';
+let KEY='';
+let autoRefreshTimer=null;
+
+function H(){return{'Content-Type':'application/json','X-Admin-Key':KEY};}
+
+async function connect(){
+  KEY=document.getElementById('adminKey').value;
+  try{
+    const s=await fetch(API+'/api/status',{headers:H()}).then(r=>r.ok?r.json():Promise.reject(r.status));
+    setStatus('✓ connected','var(--sol-green)');
+    await Promise.all([renderStatus(s),loadChannels(),loadPending(),loadLedger(),loadAudit()]);
+    startAutoRefresh();
+  }catch(e){setStatus('✗ auth failed ('+e+')','var(--danger)');stopAutoRefresh();}
+}
+
+function setStatus(msg,color){
+  const el=document.getElementById('connStatus');
+  el.textContent=msg;el.style.color=color;
+}
+
+function startAutoRefresh(){
+  stopAutoRefresh();
+  let secs=30;
+  document.getElementById('refreshBar').textContent='auto-refresh in '+secs+'s';
+  autoRefreshTimer=setInterval(()=>{
+    secs--;
+    if(secs<=0){secs=30;refresh();}
+    document.getElementById('refreshBar').textContent='auto-refresh in '+secs+'s';
+  },1000);
+}
+
+function stopAutoRefresh(){
+  if(autoRefreshTimer){clearInterval(autoRefreshTimer);autoRefreshTimer=null;}
+  document.getElementById('refreshBar').textContent='';
+}
+
+async function refresh(){
+  if(!KEY)return;
+  try{
+    const s=await fetch(API+'/api/status',{headers:H()}).then(r=>r.ok?r.json():null);
+    if(s){await Promise.all([renderStatus(s),loadChannels(),loadPending(),loadLedger(),loadAudit()]);}
+  }catch(e){}
+}
+
+async function renderStatus(s){
+  const truth=s.truth||{};
+  const gates=s.gates||{};
+
+  // income & net profit
+  const inc=truth.real_income!=null?truth.real_income:0;
+  const net=truth.net_profit!=null?truth.net_profit:0;
+  document.getElementById('income').textContent='$'+inc.toFixed(2);
+  document.getElementById('netProfit').textContent='$'+net.toFixed(2);
+  document.getElementById('netProfit').className='val '+(net>=0?'green':'red');
+
+  // pending
+  document.getElementById('pendCount').textContent=s.pending_approvals||0;
+
+  // daily spend
+  const ds=gates.daily_spend_usd||0;
+  const dc=gates.caps&&gates.caps.daily_spend_cap||'?';
+  document.getElementById('dailySpend').textContent='$'+ds.toFixed(2);
+  document.getElementById('dailyCap').textContent='cap: $'+dc;
+
+  // kill switch
+  const ks=gates.kill_switch||false;
+  document.getElementById('killState').textContent=ks?'TRIGGERED':'armed';
+  document.getElementById('killState').className='val '+(ks?'red':'green');
+  document.getElementById('killSub').textContent=ks?'all activity halted':'watching caps';
+  document.getElementById('disengageBtn').style.display=ks?'':'none';
+
+  // data gaps
+  const gaps=truth.data_gaps||[];
+  const gapEl=document.getElementById('gapList');
+  if(!gaps.length){
+    gapEl.innerHTML='<div class="sub" style="color:var(--sol-green)">✓ No data gaps.</div>';
+  } else {
+    gapEl.innerHTML=gaps.map(g=>`<div class="gap-item">⚠ DATA GAP — ${esc(g)}</div>`).join('');
+  }
+}
+
+async function loadChannels(){
+  const chs=['products','agency','trading'];
+  let html='';
+  for(const ch of chs){
+    try{
+      const s=await fetch(API+'/api/channels/'+ch+'/scorecard',{headers:H()}).then(r=>r.json());
+      const net=s.net_usd!=null?s.net_usd:0;
+      html+=`<div class="card">
+        <div class="label purple">${ch}</div>
+        <div style="font-size:16px;font-family:var(--font-display);color:${net>=0?'var(--sol-green)':'var(--danger)'}">$${net.toFixed(2)}</div>
+        <div class="sub" style="margin-top:4px">wins ${s.wins||0} · losses ${s.losses||0}${s.win_rate!=null?' · '+Math.round(s.win_rate*100)+'% wr':''}</div>
+      </div>`;
+    }catch(e){html+=`<div class="card"><div class="label">${ch}</div><div class="sub red">DATA GAP</div></div>`;}
+  }
+  document.getElementById('channels').innerHTML=html;
+}
+
+async function runCycle(){
+  const el=document.getElementById('cycleOut');
+  try{
+    const r=await fetch(API+'/api/cycle',{method:'POST',headers:H()}).then(x=>x.json());
+    el.textContent=JSON.stringify({
+      cycle:r.cycle,candidates:r.candidates,routed:r.routed,
+      real_net:'$'+(r.measured&&r.measured.real_net||0).toFixed(2),
+      gaps:r.orientation&&r.orientation.data_gaps,
+      observe_errors:r.orientation&&r.orientation.observe_errors
+    },null,2);
+    el.classList.add('show');
+    await refresh();
+  }catch(e){el.textContent='Error: '+e;el.classList.add('show');}
+}
+
+async function loadPending(){
+  try{
+    const r=await fetch(API+'/api/approvals',{headers:H()}).then(x=>x.json());
+    const list=Array.isArray(r)?r:(r.pending||[]);
+    const el=document.getElementById('pendingList');
+    if(!list.length){el.innerHTML='<div class="sub">Nothing queued.</div>';return;}
+    el.innerHTML=list.map(p=>{
+      const qid=p.queue_id||p.id||'';
+      const act=p.action||{};
+      const kind=act.kind||p.kind||'action';
+      const chan=act.channel||p.channel||'';
+      const amt=act.usd_amount!=null?' · $'+act.usd_amount.toFixed(2):'';
+      const rc=(p.rc||'').toUpperCase();
+      const detail=JSON.stringify(act.payload||act.reason||{}).slice(0,200);
+      return `<div class="pending">
+        <div class="pending-hdr">
+          <span class="amber" style="font-weight:700">${esc(kind)}</span>
+          <span class="sub">· ${esc(chan)}${amt}</span>
+          <span class="badge badge-gap" style="margin-left:auto">${rc}</span>
+        </div>
+        <div class="pending-body">${esc(act.reason||detail)}</div>
+        <div class="pending-actions">
+          <button class="btn btn-green btn-sm" onclick="approve('${esc(qid)}')">✓ Approve</button>
+          <button class="btn btn-danger btn-sm" onclick="reject('${esc(qid)}')">✗ Reject</button>
+          ${kind==='real_trade'?`<input id="sig_${esc(qid)}" placeholder="signature (required for trades)" style="flex:1;font-size:11px">`:'' }
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){}
+}
+
+async function approve(qid){
+  const sigEl=document.getElementById('sig_'+qid);
+  const sig=sigEl?sigEl.value:undefined;
+  try{
+    const r=await fetch(API+'/api/approve',{method:'POST',headers:H(),
+      body:JSON.stringify({queue_id:qid,approver:'admin',signature:sig||undefined})}).then(x=>x.json());
+    await Promise.all([loadPending(),refresh()]);
+  }catch(e){alert('Approve failed: '+e);}
+}
+
+async function reject(qid){
+  try{
+    await fetch(API+'/api/reject',{method:'POST',headers:H(),
+      body:JSON.stringify({queue_id:qid,approver:'admin'})});
+    await loadPending();
+  }catch(e){}
+}
+
+async function killSwitch(){
+  if(!confirm('Engage the kill switch? This halts ALL channel activity immediately.'))return;
+  await fetch(API+'/api/kill-switch',{method:'POST',headers:H()});
+  refresh();
+}
+
+async function disengageKillSwitch(){
+  if(!confirm('Disengage kill switch? Activity will resume subject to normal caps.'))return;
+  await fetch(API+'/api/kill-switch/disengage',{method:'POST',headers:H()});
+  refresh();
+}
+
+async function checkCopy(){
+  const text=document.getElementById('copyText').value;
+  if(!text.trim())return;
+  try{
+    const r=await fetch(API+'/api/compliance/check-copy',{method:'POST',headers:H(),
+      body:JSON.stringify({text})}).then(x=>x.json());
+    const el=document.getElementById('copyOut');
+    if(r.ok){
+      el.innerHTML='<span class="green">✓ No banned claims detected.</span>';
+    } else {
+      el.innerHTML='<span class="red">✗ Issues found — rewrite before publishing:</span>\n'+
+        r.issues.map(i=>'  • '+esc(i)).join('\n');
+    }
+    el.classList.add('show');
+  }catch(e){}
+}
+
+async function manualSale(){
+  const el=document.getElementById('manualOut');
+  const body={
+    sale_id:document.getElementById('mSaleId').value,
+    product:document.getElementById('mProduct').value,
+    gross_usd:parseFloat(document.getElementById('mGross').value)||0,
+    fee_usd:parseFloat(document.getElementById('mFee').value)||0,
+  };
+  if(!body.sale_id||!body.gross_usd){el.textContent='sale_id and gross_usd required.';el.classList.add('show');return;}
+  try{
+    const r=await fetch(API+'/api/manual/sale',{method:'POST',headers:H(),body:JSON.stringify(body)}).then(x=>x.json());
+    el.textContent='Booked. Net profit now: $'+(r.net_profit_now||0).toFixed(2);
+    el.classList.add('show');
+    refresh();
+  }catch(e){el.textContent='Error: '+e;el.classList.add('show');}
+}
+
+async function loadLedger(){
+  try{
+    const r=await fetch(API+'/api/ledger',{headers:H()}).then(x=>x.json());
+    const entries=r.entries||[];
+    if(!entries.length){document.getElementById('ledgerContent').innerHTML='<div class="sub">No entries yet.</div>';return;}
+    let html=`<div style="overflow-x:auto"><div class="ledger-row" style="color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:0.08em">
+      <span>Fetched at</span><span>Value</span><span>Source type</span><span>Reconciled</span><span>Source</span></div>`;
+    for(const e of entries.slice().reverse().slice(0,100)){
+      const rc=e.reconciled;
+      const st=e.source_type;
+      html+=`<div class="ledger-row">
+        <span class="sub">${(e.fetched_at||'').slice(0,19).replace('T',' ')}</span>
+        <span class="${rc?'green':'amber'}">$${(e.value||0).toFixed(2)}</span>
+        <span><span class="badge ${rc?'badge-real':'badge-est'}">${esc(st)}</span></span>
+        <span class="${rc?'green':'red'}">${rc?'✓ yes':'✗ no'}</span>
+        <span class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.source||'')}">${esc((e.source||'').slice(0,80))}</span>
+      </div>`;
+    }
+    html+='</div>';
+    if(r.data_gaps&&r.data_gaps.length){
+      html+='<div style="margin-top:10px">'+r.data_gaps.map(g=>`<div class="gap-item">DATA GAP: ${esc(g)}</div>`).join('')+'</div>';
+    }
+    document.getElementById('ledgerContent').innerHTML=html;
+  }catch(e){document.getElementById('ledgerContent').innerHTML='<div class="sub red">'+e+'</div>';}
+}
+
+async function loadAudit(){
+  try{
+    const r=await fetch(API+'/api/audit',{headers:H()}).then(x=>x.json());
+    const rows=(r.audit||[]).slice().reverse().slice(0,100);
+    if(!rows.length){document.getElementById('auditContent').innerHTML='<div class="sub">No audit entries yet.</div>';return;}
+    let html='';
+    for(const row of rows){
+      const oc=row.outcome||'';
+      const color=oc==='executed'?'var(--sol-green)':oc==='queued'?'var(--amber)':oc==='halted'?'var(--danger)':'var(--muted)';
+      html+=`<div class="audit-row">
+        <span class="audit-ts">${(row.ts||'').slice(0,19).replace('T',' ')}</span>
+        <span class="audit-kind purple">${esc(row.kind||'')}</span>
+        <span class="audit-outcome" style="color:${color}">${esc(oc)}</span>
+        <span class="audit-detail">${esc(row.channel||'')} · ${esc((row.reasons||[]).join('; ').slice(0,120))}</span>
+      </div>`;
+    }
+    document.getElementById('auditContent').innerHTML=html;
+  }catch(e){document.getElementById('auditContent').innerHTML='<div class="sub red">'+e+'</div>';}
+}
+
+function showTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(name).classList.add('active');
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>
