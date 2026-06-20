@@ -1,0 +1,52 @@
+# YABBAI.NETWORK V2 — PRD
+
+## Original problem statement
+Unify the YABBAI network — 15 surfaces across two stacks (Supabase static-HTML web
+surfaces + 5 Python FastAPI backends) — under one hub, one sign-in, one design system.
+Additive/integration build: keep all existing functionality, preserve safety invariants.
+
+## Environment reality & chosen architecture
+Emergent exposes ONE backend port (8001, via `/api`) + ONE frontend (3000). The original
+design (6 ports + Supabase + Netlify + Deno edge functions + Railway) does not map 1:1.
+Decision (confirmed with user): **adapt the whole system to run unified inside Emergent.**
+- All 5 Python backends mounted into one FastAPI app on :8001, each under `/api/<service>`:
+  revenue → `/api/revenue`, ai → `/api/ai`, goldscout → `/api/goldscout`,
+  defi → `/api/defi`, ops → `/api/ops`.
+- Hub + surfaces served by the React frontend from `/public`; they call backends via
+  `window.location.origin + /api/<service>` (same origin in Emergent ingress).
+- AI brain uses the Emergent Universal LLM key (Claude Sonnet 4-6) — replaces the heavy
+  local Ollama stack and the Supabase edge functions for AI.
+- Supabase keys (user-provided) wired into the hub; magic-link/Google auth bypassed in
+  preview so the live network is visible.
+
+## Safety invariants (intact, verified by tests)
+Income = payment_processor + reconciled only · HIGH actions queued for approval ·
+kill-switch halts all activity · NoKeySigner refuses live trades · no fabricated numbers ·
+daily caps count pending+executed · compliance gate blocks guarantee/risk-free claims.
+
+## What's implemented (Phase 1 — 2026-06-20)
+- Unified backend `/app/backend/server.py` mounting the original revenue_system, defi_simulator,
+  yabbai_ops apps + AI router + GoldScout router; `/api/health`, `/api/network/status`, `/api/settings`.
+- Fixed original import bugs (defi `simulator`→`defi_simulator`, ops `core`→`yabbai_ops.core`).
+- AI router (`ai_router.py`): chat, streaming chat, diagnose, scope-brief, call-guide, catalog-agent.
+- GoldScout router (auth-free; Tavily-optional, degrades honestly).
+- Hub reconfigured (`/public/hub/index.html`): unified single-origin paths, Supabase keys,
+  preview shell boot, prefilled admin key. Civilisation map + live strip + services panel + kill-switch.
+- 5 Python dashboards served from frontend (`/revsys /defisim /opscockpit /goldscout /ai`),
+  repointed to the unified prefixes. On-brand AI console at `/ai`.
+- Fixed pre-existing frontend breakage (webpack-dev-server v5 vs CRA v4 middleware API) in craco.config.js.
+- Tests: 17/17 backend pass; all frontend flows pass (see /app/backend/tests/test_unified_backend.py).
+
+## Deferred backlog (next phases)
+- P1: Supabase migrations (001–009) + the 6 data web surfaces (Mission Control /app, Realm OS,
+  Agency Floor, Catalog Studio, Client Portal, Vault) wired to Supabase or re-implemented as
+  `/api` endpoints. Diagnose surface wired to `/api/ai/diagnose`.
+- P1: Settings page — Google Auth (Emergent-managed), Stripe, PayPal, Phantom wallet connections
+  (backend stub exists at `/api/settings`).
+- P2: Persist reconciled income/ledger to Mongo (currently in-memory). Stripe webhook → `/api/revenue/webhooks/invoice-paid`.
+- P2: GoldScout Tavily key + live scout; YABBAI AI agent-team / coding-IDE surfaces.
+- P2: data-testids on hub kill-switch chips for regression hardening.
+
+## Key facts
+- Admin key: `yabbai-director-key` (X-Admin-Key header), in backend .env ADMIN_API_KEY.
+- EMERGENT_LLM_KEY in backend .env.
