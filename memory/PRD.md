@@ -55,6 +55,13 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - **Supabase connector (secure secret input)**: Settings → Supabase section takes a masked `service_role` key (stored server-side, never echoed) + project URL. `GET /api/supabase/status` (auth+2FA) probes known tables; `GET /api/supabase/table/{name}` service-role read proxy (whitelisted). Consolidated schema at `/sql/yabbai_schema.sql`. Data-surface wiring pending user pasting the key + running the SQL.
 - Tests: iteration_4 — 13/13 backend + all frontend pass.
 
+## Phase 5 — Security sweep + deployment readiness (2026-06-20)
+- **Closed unauth holes**: `/api/settings` (GET+PUT) and all sensitive `/api/ai/*` (chat, stream, providers, nvidia/models, test, scope-brief, call-guide, catalog-agent) now require an authed + 2FA-verified Director (`require_director`). `/api/ai/health` + `/api/ai/diagnose` stay public (lead magnet). Frontend callers send credentials; `/ai` console is now gated.
+- **Security headers** middleware (X-Frame-Options SAMEORIGIN, X-Content-Type-Options nosniff, Referrer-Policy, HSTS). **CORS** reads explicit origins from `CORS_ORIGINS` env with `allow_credentials` (no wildcard+credentials).
+- **Supabase secrets** wired from env (`SUPABASE_PUBLIC_URL/PUBLISHABLE_KEY/SECRET_KEY/JWT_SIGNING_KEY`); connector authenticates; awaiting schema SQL run.
+- Tests: iteration_7 security sweep 34/34 backend + 5/5 frontend pass. **deployment_agent: PASS, 0 blockers.**
+- Residual (non-blocking): revenue admin key still prefilled client-side on Director-gated dashboards; defi/ops sub-app endpoints unauthenticated (paper-only, no secrets).
+
 ## Deferred backlog (next phases)
 - P1: Supabase migrations (001–009) + the 6 data web surfaces (Mission Control /app, Realm OS,
   Agency Floor, Catalog Studio, Client Portal, Vault) wired to Supabase or re-implemented as
