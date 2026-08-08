@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI — Two-factor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px}
+  body{background:radial-gradient(1100px 600px at 50% -10%,rgba(153,69,255,.12),transparent 60%),var(--void);
+    display:flex;align-items:center;justify-content:center;min-height:100vh;padding:22px}
+  .gate{border:1px solid var(--line);background:var(--panel);padding:36px 34px;max-width:460px;width:100%;border-radius:8px;text-align:center}
+  .brand{font-family:var(--disp);font-weight:800;font-size:16px;margin-bottom:4px}.brand b{color:var(--purple)}
+  .brand small{display:block;font-weight:400;font-size:9px;color:var(--dim2);letter-spacing:3px;margin-top:6px;text-transform:uppercase}
+  h1{font-family:var(--disp);font-size:18px;margin:20px 0 6px}h1 em{color:var(--green);font-style:normal}
+  p{font-size:11.5px;color:var(--dim);margin-bottom:16px;line-height:1.7}
+  #qrbox{display:inline-block;padding:12px;background:#fff;border-radius:8px;margin:6px 0 12px}
+  #qr{display:block}
+  .secret{font-size:11px;color:var(--green);letter-spacing:1.5px;word-break:break-all;background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:8px 10px;margin-bottom:16px}
+  .code{width:100%;text-align:center;letter-spacing:8px;font-size:22px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:12px;border-radius:4px;font-family:var(--mono)}
+  .code:focus{border-color:var(--purple);outline:none}
+  .btn{margin-top:14px;width:100%;padding:13px;border:1px solid var(--purple);color:var(--purple);background:transparent;
+    border-radius:4px;font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .status{font-size:10.5px;margin-top:12px;min-height:15px}
+  .status.err{color:var(--red)}.status.ok{color:var(--green)}
+  .link{margin-top:18px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2)}
+  .link a{color:var(--dim)}
+</style>
+</head>
+<body>
+  <div class="gate">
+    <div class="brand">YABBAI<b>.</b>NETWORK<small>Two-factor · Google Authenticator</small></div>
+    <h1 id="title">Securing the <em>Director gate</em></h1>
+    <p id="lead">Loading…</p>
+    <div id="enroll" style="display:none">
+      <div id="qrbox"><canvas id="qr"></canvas></div>
+      <p style="margin-bottom:6px">Scan with Google Authenticator, then enter the 6-digit code. Manual key:</p>
+      <div class="secret" id="secret"></div>
+    </div>
+    <input class="code" id="code" inputmode="numeric" maxlength="6" placeholder="000000" data-testid="totp-code" autocomplete="one-time-code">
+    <button class="btn" id="verify" data-testid="totp-verify">Verify &amp; enter</button>
+    <div class="status" id="status"></div>
+    <div class="link"><a href="#" onclick="logout();return false;">sign out</a></div>
+  </div>
+<script>
+const ORIGIN = window.location.origin;
+const $ = id => document.getElementById(id);
+window.logout = async () => { try{await fetch(ORIGIN+'/api/auth/logout',{method:'POST',credentials:'include'});}catch(e){} window.location.replace('/login/index.html'); };
+
+async function init(){
+  let me=null;
+  try{ const r=await fetch(ORIGIN+'/api/auth/me',{credentials:'include'}); if(r.ok) me=await r.json(); }catch(e){}
+  if(!me){ window.location.replace('/login/index.html'); return; }
+  if(me.mfa_verified){ window.location.replace('/hub/index.html'); return; }
+  const s = await fetch(ORIGIN+'/api/auth/2fa/setup',{method:'POST',credentials:'include'}).then(r=>r.json());
+  if(s.already_enrolled){
+    $('title').innerHTML = 'Two-factor <em>check</em>';
+    $('lead').textContent = 'Enter the current 6-digit code from Google Authenticator for '+ (me.email||'your account') +'.';
+  } else {
+    $('title').innerHTML = 'Set up <em>Google Authenticator</em>';
+    $('lead').textContent = 'Add '+(me.email||'your account')+' to Google Authenticator, then confirm the code.';
+    $('enroll').style.display='block';
+    $('secret').textContent = s.secret;
+    QRCode.toCanvas($('qr'), s.otpauth_url, {width:190, margin:1}, err=>{ if(err) console.log(err); });
+  }
+  $('code').focus();
+}
+
+async function verify(){
+  const code = $('code').value.trim();
+  if(code.length<6){ $('status').className='status err'; $('status').textContent='Enter the 6-digit code.'; return; }
+  $('status').className='status'; $('status').textContent='Verifying…';
+  const r = await fetch(ORIGIN+'/api/auth/2fa/verify',{method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+  if(r.ok){ $('status').className='status ok'; $('status').textContent='✓ Verified — entering the network…'; setTimeout(()=>window.location.replace('/hub/index.html'),700); }
+  else { const d=await r.json().catch(()=>({})); $('status').className='status err'; $('status').textContent='✗ '+(d.detail||'Invalid code'); }
+}
+$('verify').onclick=verify;
+$('code').addEventListener('keydown',e=>{ if(e.key==='Enter') verify(); });
+init();
+</script>
+</body>
+</html>

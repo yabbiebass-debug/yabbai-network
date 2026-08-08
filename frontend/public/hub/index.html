@@ -124,8 +124,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 /* ══════════════════════════════════════════════════════════
    CONFIG — paste your values, then deploy
    ══════════════════════════════════════════════════════════ */
-const SUPABASE_URL      = 'https://duayyczdorgswlvslrfz.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_rkKBL23MUGP_Qz9-lZ87Hg_D5ua8-TX';
+const SUPABASE_URL      = 'https://gecwxvwziktvaiwdhzeg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_tx42inJt-e9AqA7wFfDTxw_wbR5BmDD';
 
 const ORIGIN = window.location.origin;
 // Web surfaces are served from this same origin under /<surface>/index.html
@@ -271,6 +271,7 @@ function shell(){
     <div class="services" id="svcPanel">
       <h3 style="display:flex;align-items:center;gap:10px">Python Backend Services
         <a href="/settings/index.html" style="margin-left:auto;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--purple);border:1px solid var(--line);padding:4px 10px;border-radius:99px" data-testid="hub-settings-link">⚙ Routing &amp; Connections</a>
+        <a href="/wallets/index.html" style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);border:1px solid var(--line);padding:4px 10px;border-radius:99px" data-testid="hub-wallets-link">◈ Wallets</a>
         <a href="#" onclick="logout();return false;" style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);border:1px solid var(--line);padding:4px 10px;border-radius:99px" data-testid="hub-logout">Sign out</a>
       </h3>
       <div class="svcrow" id="svcrow"></div>
@@ -555,12 +556,14 @@ async function exchangeSessionId(){
 }
 async function requireAuth(){
   await exchangeSessionId();
+  let me = null;
   try{
     const r = await fetch(`${ORIGIN}/api/auth/me`, { credentials:'include' });
-    if(r.ok) return await r.json();
+    if(r.ok) me = await r.json();
   }catch(e){}
-  window.location.replace('/login/index.html');
-  return null;
+  if(!me){ window.location.replace('/login/index.html'); return null; }
+  if(me.mfa_required && !me.mfa_verified){ window.location.replace('/2fa/index.html'); return null; }
+  return me;
 }
 window.logout = async function(){
   try{ await fetch(`${ORIGIN}/api/auth/logout`, { method:'POST', credentials:'include' }); }catch(e){}

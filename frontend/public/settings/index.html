@@ -103,6 +103,8 @@ async function load(){
   try{
     const a = await fetch(API+'/api/auth/me', {credentials:'include'});
     if(!a.ok){ window.location.replace('/login/index.html'); return; }
+    const me = await a.json();
+    if(me.mfa_required && !me.mfa_verified){ window.location.replace('/2fa/index.html'); return; }
   }catch(e){ window.location.replace('/login/index.html'); return; }
   try{
     S = await fetch(API+'/api/settings').then(r=>{ if(!r.ok) throw new Error('settings '+r.status); return r.json(); });

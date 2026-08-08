@@ -28,6 +28,7 @@ from yabbai_ops.server import app as ops_app
 from ai_router import router as ai_router
 from goldscout_router import router as goldscout_router
 from auth_router import router as auth_router
+from wallet_router import router as wallet_router
 
 # health aliases so every service answers at <prefix>/health (the hub polls this)
 @defi_app.get("/health")
@@ -86,3 +87,4 @@ app.mount("/api/ops", ops_app)
 app.include_router(ai_router)
 app.include_router(goldscout_router)
 app.include_router(auth_router)
+app.include_router(wallet_router)

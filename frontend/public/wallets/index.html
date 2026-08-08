@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI — Wallets · multi-chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.6;min-height:100%}
+  body{background:radial-gradient(1100px 600px at 50% -10%,rgba(153,69,255,.10),transparent 60%),var(--void)}
+  a{color:var(--purple);text-decoration:none}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 80px}
+  .nav{display:flex;align-items:center;gap:10px;padding:16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}.brand b{color:var(--purple)}
+  .brand small{display:block;font-weight:400;font-size:9px;color:var(--dim);letter-spacing:2.5px;margin-top:2px}
+  .back{margin-left:auto;font-size:10px;letter-spacing:1.5px;text-transform:uppercase}
+  h1{font-family:var(--disp);font-size:22px;margin:26px 0 4px}h1 em{color:var(--green);font-style:normal}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:20px;max-width:74ch}
+  .eyebrow{font-size:9.5px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin:24px 0 12px;font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .card{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:16px;transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--purple);transform:translateY(-2px)}
+  .chip{font-size:8px;letter-spacing:1.5px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--dim);text-transform:uppercase}
+  .chip.evm{border-color:var(--purple);color:var(--purple)}.chip.solana{border-color:var(--green);color:var(--green)}
+  .btn{padding:10px 15px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;background:transparent;cursor:pointer;transition:background .15s,color .15s}
+  .btn:hover{background:var(--purple);color:#fff}
+  .btn.green{border-color:var(--green);color:var(--green)}.btn.green:hover{background:var(--green);color:#021}
+  .btn.sm{padding:7px 11px;font-size:9px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  select{background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:10px;border-radius:3px;font-family:var(--mono);font-size:12px}
+  .wal .addr{font-size:10.5px;color:var(--dim);word-break:break-all;margin:6px 0}
+  .bal{font-family:var(--disp);font-size:20px;color:var(--green)}
+  .bal small{font-size:11px;color:var(--dim);font-family:var(--mono)}
+  .safe{border:1px solid rgba(20,241,149,.35);background:rgba(20,241,149,.05);border-radius:6px;padding:14px 16px;margin:6px 0 4px}
+  .safe b{color:var(--green)}
+  .warn{border:1px solid rgba(245,166,35,.4);background:rgba(245,166,35,.05);border-radius:6px;padding:14px 16px}
+  .warn b{color:var(--amber)}
+  .status{font-size:10.5px;color:var(--dim2);margin-top:10px;min-height:15px}
+  .empty{color:var(--dim2);font-size:11px;padding:14px 0}
+  .hint{font-size:10px;color:var(--dim2);margin-top:8px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <div class="brand">YABBAI<b>.</b>NETWORK<small>WALLETS · MULTI-CHAIN</small></div>
+    <a class="back" href="/hub/index.html">← back to hub</a>
+  </nav>
+
+  <h1>Your keys. <em>Your signature.</em> Every chain.</h1>
+  <div class="sub">Connect MetaMask, Phantom or Jupiter — private keys never leave your extension. YABBAI reads balances and proposes DeFi/GoldScout moves; you approve and sign each real mainnet transaction yourself. The autonomous loop stays paper until you sign.</div>
+
+  <div class="safe">
+    <b>Why no server-side private key?</b> A cloud wallet that auto-trades real funds is the fastest way to lose everything (leak, bug, injection). This network's safety contract forbids a cloud key store — so real gains flow through <b>your</b> extension, signed by <b>you</b>. <code>APP_ENC_KEY</code> only encrypts 2FA secrets &amp; wallet metadata, never a spending key.
+  </div>
+
+  <div class="eyebrow">Connect a wallet</div>
+  <div class="row">
+    <select id="evmChain"></select>
+    <button class="btn" id="mmConnect" data-testid="connect-metamask">Connect MetaMask (EVM)</button>
+    <button class="btn green" id="phConnect" data-testid="connect-phantom">Connect Phantom (Solana)</button>
+    <button class="btn sm" id="jupBtn">Open Jupiter swap ↗</button>
+  </div>
+  <div class="status" id="connectStatus"></div>
+
+  <div class="eyebrow">Connected wallets &amp; live balances</div>
+  <div class="grid" id="wallets"><div class="empty">No wallets connected yet.</div></div>
+  <div class="row" style="margin-top:12px"><button class="btn sm" id="refresh">Refresh balances</button></div>
+
+  <div class="eyebrow">Execution — human-approved, wallet-signed</div>
+  <div class="warn">
+    <b>Live execution</b> for DeFi Simulator &amp; GoldScout runs through the connected extension: the engine surfaces an opportunity (scam-filtered), you review, then sign in MetaMask/Phantom/Jupiter. No transaction is ever broadcast without your signature. Autonomous strategy backtests stay on paper (<code>NoKeySigner</code> refuses cloud broadcasts).
+  </div>
+  <div class="hint">Supported now: Ethereum · Base · Arbitrum · Polygon · BNB Chain · Solana — any token on these chains, surfaced when GoldScout finds a clean-scored opportunity.</div>
+</div>
+
+<script>
+const ORIGIN = window.location.origin;
+const $ = id => document.getElementById(id);
+window.logout = async () => { try{await fetch(ORIGIN+'/api/auth/logout',{method:'POST',credentials:'include'});}catch(e){} window.location.replace('/login/index.html'); };
+let CHAINS = {};
+
+async function guard(){
+  let me=null;
+  try{ const r=await fetch(ORIGIN+'/api/auth/me',{credentials:'include'}); if(r.ok) me=await r.json(); }catch(e){}
+  if(!me){ window.location.replace('/login/index.html'); return false; }
+  if(me.mfa_required && !me.mfa_verified){ window.location.replace('/2fa/index.html'); return false; }
+  return true;
+}
+
+async function loadChains(){
+  const d = await fetch(ORIGIN+'/api/wallet/chains').then(r=>r.json());
+  d.chains.forEach(c=>{ CHAINS[c.key]=c; });
+  $('evmChain').innerHTML = d.chains.filter(c=>c.kind==='evm')
+    .map(c=>`<option value="${c.key}">${c.label} (${c.symbol})</option>`).join('');
+}
+
+function short(a){ return a.length>16 ? a.slice(0,8)+'…'+a.slice(-6) : a; }
+
+async function connectMetaMask(){
+  if(!window.ethereum){ $('connectStatus').textContent='MetaMask not detected — install the extension.'; return; }
+  const chainKey = $('evmChain').value; const c = CHAINS[chainKey];
+  try{
+    const accts = await window.ethereum.request({method:'eth_requestAccounts'});
+    const address = accts[0];
+    try{ await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:c.chain_id}]}); }catch(e){}
+    await fetch(ORIGIN+'/api/wallet/connect',{method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({address,chain:chainKey,provider:'metamask'})});
+    $('connectStatus').textContent='Connected '+short(address)+' on '+c.label;
+    loadWallets();
+  }catch(e){ $('connectStatus').textContent='MetaMask: '+(e.message||e); }
+}
+
+async function connectPhantom(){
+  const p = window.solana;
+  if(!p || !p.isPhantom){ $('connectStatus').textContent='Phantom not detected — install the extension.'; return; }
+  try{
+    const resp = await p.connect();
+    const address = resp.publicKey.toString();
+    await fetch(ORIGIN+'/api/wallet/connect',{method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({address,chain:'solana',provider:'phantom'})});
+    $('connectStatus').textContent='Connected '+short(address)+' on Solana';
+    loadWallets();
+  }catch(e){ $('connectStatus').textContent='Phantom: '+(e.message||e); }
+}
+
+async function loadWallets(){
+  const d = await fetch(ORIGIN+'/api/wallet/list',{credentials:'include'}).then(r=>r.json()).catch(()=>({wallets:[]}));
+  const host = $('wallets');
+  if(!d.wallets || !d.wallets.length){ host.innerHTML='<div class="empty">No wallets connected yet.</div>'; return; }
+  host.innerHTML = d.wallets.map(w=>{
+    const c = CHAINS[w.chain]||{};
+    return `<div class="card wal" data-chain="${w.chain}" data-addr="${w.address}">
+      <div class="row" style="justify-content:space-between">
+        <span class="chip ${c.kind||''}">${(c.label||w.chain)}</span>
+        <span class="chip">${w.provider}</span>
+      </div>
+      <div class="addr">${short(w.address)}</div>
+      <div class="bal" data-bal>… <small>${c.symbol||''}</small></div>
+      <div class="row" style="margin-top:8px">
+        <a class="btn sm" href="${(c.explorer||'#')}/address/${w.address}" target="_blank">Explorer ↗</a>
+      </div>
+    </div>`;
+  }).join('');
+  refreshBalances();
+}
+
+async function refreshBalances(){
+  document.querySelectorAll('.wal').forEach(async el=>{
+    const chain=el.dataset.chain, addr=el.dataset.addr;
+    const b = el.querySelector('[data-bal]');
+    try{
+      const d = await fetch(`${ORIGIN}/api/wallet/balance?chain=${chain}&address=${addr}`).then(r=>r.json());
+      b.innerHTML = d.ok ? (Number(d.balance).toFixed(5)+' <small>'+d.symbol+'</small>') : '<small style="color:var(--red)">error</small>';
+    }catch(e){ b.innerHTML='<small style="color:var(--red)">error</small>'; }
+  });
+}
+
+$('mmConnect').onclick=connectMetaMask;
+$('phConnect').onclick=connectPhantom;
+$('refresh').onclick=refreshBalances;
+$('jupBtn').onclick=()=>window.open('https://jup.ag/','_blank');
+
+(async ()=>{ if(!await guard()) return; await loadChains(); await loadWallets(); })();
+</script>
+</body>
+</html>

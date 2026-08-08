@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 3 — validated (A) Google-Authenticator 2FA backend flow, (B) email allowlist (code + env), (C) multi-chain wallet surface (chains list without RPC leak, live public-RPC balances for ETH + SOL, auth+2FA gating on /connect and /list, upsert-no-duplicate on re-connect), and (D) frontend gate order signed-in -> 2FA-verified -> /hub|/wallets. 17/17 backend pytest cases pass. 7/7 Playwright UI checks pass: /hub with no cookie -> /login; /hub with unverified session -> /2fa; the 2FA page renders QR canvas + secret + [data-testid=totp-code] + [data-testid=totp-verify]; /hub with a 2FA-verified session renders the Director shell (email shown, hub-wallets-link, hub-settings-link, hub-logout all present); /wallets renders connect-metamask + connect-phantom + chain selector + safety explainer, and the pre-seeded wallet card auto-loads a live balance (6.63402 ETH from Ethereum publicnode RPC); /wallets with no cookie -> /login and /wallets with unverified session -> /2fa. Regression: /api/network/status all_live=true, /api/ai/providers returns {nvidia,emergent,yabbai} tiers, /api/ai/chat returns ok=true.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "hub/index.html",
+        "issues": [
+          "The `.svc .sport` labels under 'Python Backend Services' still hard-code obsolete standalone ports (7870/7860/8001/8002/7880) — only visible if you don't look closely. Cosmetic carry-over from iter_2.",
+          "The 'live' service row is now labeled with paths like /api/revenue — good; keep in sync if you drop the port ints."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_2fa_wallet.py",
+    "/app/test_reports/pytest/iter3_results.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional: (a) drop stale port ints in hub/index.html service labels; (b) settings/index.html save-button footgun from iter_2 still not addressed (disable Save until load() completes)."
+  ],
+  "critical_code_review_comments": [
+    "auth_router.create_session — good: allowlist check happens BEFORE db.users.insert_one (verified by string-index test). 403 is returned with a clear message and no user row is created.",
+    "auth_router._fernet is initialised at import time from APP_ENC_KEY (Fernet). If APP_ENC_KEY were ever missing the whole module fails to import — good fail-fast, but worth a note in ops docs.",
+    "wallet_router._require_user cleanly separates 401 (no session) vs 403 (no 2FA). Matches the spec.",
+    "wallet_router.balance catches all exceptions and returns {ok:false, error:str(e)[:160]} — safe surface, but the string may leak internal RPC hostnames if publicnode returns HTML/redirects. Consider whitelisting a short generic message.",
+    "wallet_router.connect uses upsert on {user_id,address,chain} — no duplicate row on re-connect (verified). Provider field is overwritten each time — fine.",
+    "wallet_router.remove_wallet does not surface 404 if wallet_id is unknown — silently returns ok:true. Minor UX/nit; not a security issue because the query is scoped to user_id."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_2fa_wallet.py"
+  ],
+  "success_rate": { "backend": "100% (17/17)", "frontend": "100% (7/7 UI gate + render checks)" },
+  "test_credentials": "Playwright run seeded two disposable Mongo sessions (unverified + 2FA-verified) plus one wallet row for the verified user; all cleaned up post-run. Backend pytest fixtures seed+teardown their own users/sessions/wallets. Live public-RPC test address 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 (vitalik.eth) returned 6.63402 ETH — confirms the ethereum-rpc.publicnode.com path is live.",
+  "seed_data_creation": "Ephemeral (all cleaned).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new V2 surfaces (2FA + wallets) are green. When testing the OAuth exchange end-to-end you can't skip the emergent session step — validate the allowlist by code+env instead (already covered in TestAllowlist). MetaMask/Phantom extensions aren't available in Playwright — /wallets UI + /api/wallet/list flow was verified by pre-seeding a wallet row in Mongo. The stale port labels in hub/index.html and the settings save-button footgun from iter_2 are still outstanding — carry over.",
+  "rca of the issue": "N/A — no new bugs found this iteration."
+}
