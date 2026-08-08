@@ -42,6 +42,13 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - **Emergent-managed Google sign-in** gating `/hub` and `/settings` (public `/diagnose` stays open). `/login/index.html` → auth.emergentagent.com → hub exchanges `#session_id` at `POST /api/auth/session` → httpOnly `session_token` cookie (7d). `GET /api/auth/me`, `POST /api/auth/logout`. Mongo `users` + `user_sessions`. Playbook: `/app/auth_testing.md`.
 - Tests: iteration_2 — 12/12 backend pass, frontend auth gate + settings UI pass. Fixed MEDIUM bug: Save button disabled until hydration + backend ignores empty `route_order`.
 
+## Phase 3 — Allowlist + Google Authenticator 2FA + multi-chain wallets (2026-06-20)
+- **Access lockdown**: Google sign-in restricted to `AUTH_ALLOWLIST` (yabbiebass@gmail.com, thomas.basham1@gmail.com); any other email → 403, no user created.
+- **Google Authenticator (TOTP) 2FA** (pyotp): `/2fa` enrollment (QR + secret) → verify; secret encrypted at rest with `APP_ENC_KEY` (Fernet). Gate order for /hub, /settings, /wallets: authed → 2FA-verified. Endpoints `/api/auth/2fa/setup|verify`; `/api/auth/me` returns mfa_required/enrolled/verified.
+- **Multi-chain wallets (SAFE — no server private keys)** at `/wallets`: connect MetaMask (EVM) / Phantom (Solana) / Jupiter link; keys stay in the extension, real txs signed client-side. Watch-only live balances via public RPCs across Ethereum, Base, Arbitrum, Polygon, BNB Chain, Solana. Backend `/api/wallet/chains|connect|list|balance` (connect/list require auth+2FA). Verified live: 6.63 ETH + 1679 SOL reads. **Refused (by design + safety contract): cloud-stored private key / autonomous real-money trading — NoKeySigner unchanged.**
+- **Supabase**: new project wired in hub; consolidated schema (migrations 001–009) served at `/sql/yabbai_schema.sql` for SQL-Editor paste (service_role/DB access not provided, so data runs via the unified backend meanwhile).
+- Tests: iteration_3 — 17/17 backend + 7/7 frontend pass, no blocking issues.
+
 ## Deferred backlog (next phases)
 - P1: Supabase migrations (001–009) + the 6 data web surfaces (Mission Control /app, Realm OS,
   Agency Floor, Catalog Studio, Client Portal, Vault) wired to Supabase or re-implemented as

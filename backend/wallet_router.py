@@ -116,5 +116,6 @@ async def balance(chain: str, address: str):
                 native = lamports / (10 ** c["decimals"])
         return {"ok": True, "chain": chain, "address": address,
                 "balance": native, "symbol": c["symbol"], "explorer": c["explorer"]}
-    except Exception as e:
-        return {"ok": False, "chain": chain, "address": address, "error": str(e)[:160]}
+    except Exception:
+        return {"ok": False, "chain": chain, "address": address,
+                "error": "Balance unavailable — public RPC busy, try again."}
