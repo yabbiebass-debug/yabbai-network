@@ -80,7 +80,7 @@ async def read_table(name: str, request: Request, authorization: Optional[str] =
         raise HTTPException(400, "Table not permitted")
     url, key = await _creds()
     if not (url and key):
-        raise HTTPException(400, "Supabase not configured — add the service_role key in Settings.")
+        raise HTTPException(400, "Supabase not configured — set SUPABASE_SECRET_KEY in the backend .env or add the service_role key in Settings.")
     params = {"select": select, "limit": str(limit)}
     if order:
         params["order"] = order
