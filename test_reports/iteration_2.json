@@ -1,0 +1,56 @@
+{
+  "summary": "Iteration 2 — validated (a) Emergent Google-auth gating on /hub and /settings and (b) multi-tier LLM routing (NVIDIA → Emergent → YABBAI) end-to-end. 12/12 backend tests pass (3 skipped by design because the env already has NVIDIA + YABBAI configured; the graceful-degradation path is still covered by a snapshot/clear/restore test). Frontend gate + settings UI works: unauthenticated /hub and /settings redirect to /login; with a seeded session_token cookie the hub renders the shell (signed-in email, live strip, 5 green service cards, civilisation map, ⚙ Routing & Connections link, Sign out link), and /settings renders 3 tier cards with up/down/toggle controls, an active-routing flow strip, nvidia-key / yabbai-url / yabbai-key inputs and a Save button. Reorder + Save persists and secrets never echo back raw. Logout invalidates the session. Regression check on /api/network/status and /api/revenue/api/status still green.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "settings/index.html",
+        "issue": "The Save button (data-testid=settings-save) is enabled and clickable BEFORE the async load()/render() completes. If a user clicks it during the ~1-2s load window, the JS `order` array is still [] and the PUT wipes route_order to [] server-side. Reproduced in this run — required manual restore. Fix: keep the button disabled until render() finishes, or refuse to submit when order.length === 0.",
+        "selector": "[data-testid=\"settings-save\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "hub/index.html",
+        "issues": [
+          "Kill-switch chip 🛑 still an inline-onclick element with no data-testid (carry-over note from iter_1).",
+          "The `.svc .sport` port labels (e.g., :7870, :8001) are now misleading in the unified single-port deployment — all services live under /api/<name> on :8001. Cosmetic only."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_routing.py",
+    "/app/backend/tests/test_unified_backend.py",
+    "/app/test_reports/pytest/iter2_results.xml"
+  ],
+  "action_items": [
+    "settings/index.html: disable the Save button (or the reorder arrows) until load()/render() has populated `order`, else a click during load wipes route_order in Mongo.",
+    "Optional: on the backend, treat empty `route_order` in PUT /api/settings as a no-op (or reject) — defensive server-side guard against the same bug from any client.",
+    "Cosmetic: update the port labels in hub/index.html (`{port:7870}` etc.) to reflect the unified :8001 deployment."
+  ],
+  "critical_code_review_comments": [
+    "network_db.save_settings drops blank/'********' secrets (good) but does NOT similarly guard against empty lists like route_order=[] — a client bug can silently wipe routing config. Add a check.",
+    "ai_router._order() falls back to ['emergent'] if the active list is empty, so chat still works — but /api/ai/providers.active_order becomes [] which is what confused the settings UI flow strip briefly. Consider defaulting active_order to DEFAULTS['route_order'] when the stored list is empty.",
+    "settings/index.html:106 `S = await fetch(...).then(r=>r.json())` has no error handling — if /api/settings ever 5xx's, the page will look 'loaded' (auth check passed) but tier cards never render and the still-enabled Save button becomes a footgun.",
+    "auth_router expires_at parsing handles both str and datetime — good; but no test coverage for the string branch. Not blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_routing.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 executed, 3 skipped-by-design)",
+    "frontend": "100% (auth gate + settings UI + reorder+save + logout all pass)"
+  },
+  "test_credentials": "Seeded Mongo session per /app/auth_testing.md — user_id=test-user-pw2-<ts>, session_token=test_session_pw2_<ts>_<hex>. Cookie set on domain revenue-nexus-2.preview.emergentagent.com, secure=true, sameSite=None, httpOnly=true. Revenue admin header X-Admin-Key: yabbai-director-key still valid.",
+  "seed_data_creation": "test_auth_routing.py inserts two disposable users+sessions per run (main fixture + logout test) and cleans them up on teardown. Two additional test users were seeded for Playwright and were NOT cleaned (test-user-pw-* / test-user-pw2-*) — they will expire in 7 days and can be dropped manually if needed. Route_order was reordered then restored to ['nvidia','emergent','yabbai'].",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Env has real NVIDIA + YABBAI values already persisted in Mongo settings doc (nvidia_api_key, yabbai_url, yabbai_api_key). That's why the 3 'no-key graceful' tests skip — the same paths are still exercised by TestRoutingProviders.test_graceful_degradation_no_secrets which snapshots + clears + restores. If you need to force graceful-mode across the whole suite, unset those Mongo fields first. Iter_1 regression (test_unified_backend.py) still passes but only /api/network/status + /api/revenue/api/status were re-checked here per E1's instruction. Cookie domain and session TTL work — the Playwright shortcut of adding the httpOnly cookie via context.add_cookies before navigating is the reliable path.",
+  "rca of the issue": "Empty route_order bug — RCA: settings/index.html initializes `let order = []` and only populates it after `S = await fetch('/api/settings')` resolves inside load(). The Save button is rendered as static HTML with data-testid=settings-save and is clickable from t=0. Clicking Save before load() completes serializes order=[] and PUTs it, which network_db.save_settings persists as-is because empty list is not a secret-field blank. Reproduction: (1) seed a session, (2) navigate to /settings, (3) within ~1s click [data-testid='settings-save'] → GET /api/settings shows route_order=[]. Mitigation: disable the Save button until render() runs (set a boolean `loaded=false` at top, flip in render()); AND in backend save_settings, ignore payload keys where key=='route_order' and the value is an empty list."
+}

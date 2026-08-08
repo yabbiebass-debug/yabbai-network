@@ -15,8 +15,9 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+
+from network_db import get_raw_settings, save_settings, sanitize
 
 load_dotenv()
 
@@ -26,6 +27,7 @@ from defi_simulator.api.server import app as defi_app
 from yabbai_ops.server import app as ops_app
 from ai_router import router as ai_router
 from goldscout_router import router as goldscout_router
+from auth_router import router as auth_router
 
 # health aliases so every service answers at <prefix>/health (the hub polls this)
 @defi_app.get("/health")
@@ -42,10 +44,6 @@ async def _ops_health():
 app = FastAPI(title="YABBAI Network Gateway", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
-
-# Mongo (settings / connections store)
-_mongo = AsyncIOMotorClient(os.environ["MONGO_URL"])
-db = _mongo[os.environ["DB_NAME"]]
 
 
 @app.get("/api/health")
@@ -69,30 +67,15 @@ async def network_status():
             "ts": datetime.now(timezone.utc).isoformat()}
 
 
-# ── connection settings (Google / Stripe / PayPal / Phantom — configured in UI) ─
-SETTINGS_DOC = "network_settings"
-PUBLIC_KEYS = {"google_client_id", "stripe_publishable_key", "paypal_client_id",
-               "phantom_enabled", "openrouter_enabled"}
-
-
+# ── connection settings (LLM routing + payments/auth — configured in /settings UI) ─
 @app.get("/api/settings")
 async def get_settings():
-    doc = await db.settings.find_one({"_id": SETTINGS_DOC}) or {}
-    out = {k: doc.get(k) for k in PUBLIC_KEYS}
-    out["secrets_set"] = {
-        "stripe_secret_key": bool(doc.get("stripe_secret_key")),
-        "paypal_secret": bool(doc.get("paypal_secret")),
-        "google_client_secret": bool(doc.get("google_client_secret")),
-        "tavily_api_key": bool(doc.get("tavily_api_key")),
-    }
-    return out
+    return sanitize(await get_raw_settings())
 
 
 @app.put("/api/settings")
 async def put_settings(payload: dict):
-    payload.pop("_id", None)
-    payload.pop("secrets_set", None)
-    await db.settings.update_one({"_id": SETTINGS_DOC}, {"$set": payload}, upsert=True)
+    await save_settings(payload)
     return {"ok": True}
 
 
@@ -102,3 +85,4 @@ app.mount("/api/defi", defi_app)
 app.mount("/api/ops", ops_app)
 app.include_router(ai_router)
 app.include_router(goldscout_router)
+app.include_router(auth_router)

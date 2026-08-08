@@ -255,7 +255,7 @@ function shell(){
   <div class="wrap">
     <nav class="nav">
       <div class="brand">YABBAI<b>.</b>NETWORK
-        <small>ALL SURFACES · ${esc(ME.role||'DIRECTOR')}</small>
+        <small>${esc(ME.email||'DIRECTOR')} · ${esc((ME.role||'director').toUpperCase())}</small>
       </div>
       <div class="netstat" id="netstat"></div>
     </nav>
@@ -269,7 +269,10 @@ function shell(){
 
     <!-- Python services panel -->
     <div class="services" id="svcPanel">
-      <h3>Python Backend Services</h3>
+      <h3 style="display:flex;align-items:center;gap:10px">Python Backend Services
+        <a href="/settings/index.html" style="margin-left:auto;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--purple);border:1px solid var(--line);padding:4px 10px;border-radius:99px" data-testid="hub-settings-link">⚙ Routing &amp; Connections</a>
+        <a href="#" onclick="logout();return false;" style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);border:1px solid var(--line);padding:4px 10px;border-radius:99px" data-testid="hub-logout">Sign out</a>
+      </h3>
       <div class="svcrow" id="svcrow"></div>
       <div class="adminrow">
         <input type="password" id="adminKeyInput" placeholder="Python admin key (ADMIN_API_KEY)" value="${esc(adminKey)}">
@@ -398,17 +401,23 @@ function renderRoutePanel(){
   const el = document.getElementById('routePanel');
   if(!el) return;
   el.innerHTML = `
-    <h3>THE ROUTED BRAIN — self-healing, three tiers</h3>
-    <div class="routeflow">
-      <div class="tier live"><span class="s"></span>Anthropic (primary)</div>
-      <span class="arrow">→</span>
-      <div class="tier pending"><span class="s"></span>OpenRouter (set key to activate)</div>
-      <span class="arrow">→</span>
-      <div class="tier off"><span class="s"></span>Ollama local (fallback)</div>
-    </div>
-    <p class="hint">Every agent calls one proxy; it tries each tier until one answers — the clan never goes dark. Set <code>OPENROUTER_API_KEY</code> + <code>OPENROUTER_MODEL</code> in Supabase secrets to activate the middle tier. Reorder tiers with <code>AI_ROUTE</code>. Python backends route through <code>yabbai_local</code> on port 7860 which uses the same model pool.</p>`;
-  const el2 = document.getElementById('engineLabel');
-  if(el2) el2.textContent = 'Anthropic→OR→local';
+    <h3>THE ROUTED BRAIN — self-healing, multi-tier</h3>
+    <div class="routeflow" id="routeTiers"><span class="hint">loading routing…</span></div>
+    <p class="hint">Every agent calls one proxy; it walks your tier list until one answers — the clan never goes dark. Configure the order, paste your NVIDIA NIM key (free) and your YABBAI Local / Ollama box in <a href="/settings/index.html" style="color:var(--purple)">⚙ Routing &amp; Connections</a>.</p>`;
+  fetch(PY.ai + '/providers').then(r=>r.json()).then(d=>{
+    const lbl = {nvidia:'NVIDIA NIM', emergent:'Claude', yabbai:'YABBAI Local'};
+    const order = d.active_order && d.active_order.length ? d.active_order : ['emergent'];
+    const tiers = d.tiers || {};
+    const flow = order.map((t,i)=>{
+      const set = tiers[t] && tiers[t].key_set;
+      const cls = set ? 'live' : 'pending';
+      return `<div class="tier ${cls}"><span class="s"></span>${i+1}. ${lbl[t]||t}${set?'':' (set key)'}</div>`;
+    }).join('<span class="arrow">→</span>');
+    const tt = document.getElementById('routeTiers');
+    if(tt) tt.innerHTML = flow;
+    const el2 = document.getElementById('engineLabel');
+    if(el2) el2.textContent = order.map(t=>lbl[t]||t).join('→').slice(0,22);
+  }).catch(()=>{});
 }
 
 function renderWebSurfaces(){
@@ -531,11 +540,39 @@ window.disengageKS = async function(){
 };
 
 /* ═══════════════════ BOOT ═══════════════════════════════ */
-// Preview mode: the unified Emergent deployment serves every surface + backend
-// from one origin. Magic-link auth (and Google auth) are configured separately;
-// here we boot straight into the Director shell so the live network is visible.
-ME.role = 'director';
-ME.uid  = 'preview';
+// Emergent-managed Google sign-in.
+// REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+async function exchangeSessionId(){
+  const h = window.location.hash || '';
+  const m = h.match(/session_id=([^&]+)/);
+  if(!m) return;
+  const sid = decodeURIComponent(m[1]);
+  try{
+    await fetch(`${ORIGIN}/api/auth/session`, { method:'POST',
+      headers:{ 'X-Session-ID': sid }, credentials:'include' });
+  }catch(e){}
+  history.replaceState(null,'',window.location.pathname);   // strip the fragment
+}
+async function requireAuth(){
+  await exchangeSessionId();
+  try{
+    const r = await fetch(`${ORIGIN}/api/auth/me`, { credentials:'include' });
+    if(r.ok) return await r.json();
+  }catch(e){}
+  window.location.replace('/login/index.html');
+  return null;
+}
+window.logout = async function(){
+  try{ await fetch(`${ORIGIN}/api/auth/logout`, { method:'POST', credentials:'include' }); }catch(e){}
+  window.location.replace('/login/index.html');
+};
+
+const user = await requireAuth();
+if(!user){ throw new Error('redirecting to login'); }
+ME.role  = user.role || 'director';
+ME.uid   = user.user_id;
+ME.email = user.email;
+ME.name  = user.name;
 
 shell();
 await Promise.all([ loadNet(), pollServices() ]);
