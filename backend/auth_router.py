@@ -144,11 +144,10 @@ async def twofa_setup(request: Request, authorization: Optional[str] = Header(No
     session, user = await _session_and_user(request, authorization)
     if not user:
         raise HTTPException(401, "Not authenticated")
-    # Already fully enrolled -> nothing to show, just ask for a code.
-    if user.get("totp_enabled") and user.get("totp_secret_enc"):
-        return {"ok": True, "already_enrolled": True}
-    # Reuse a pending secret if one exists (stable across page reloads),
-    # otherwise mint a fresh one. This prevents the "scanned QR no longer matches" bug.
+    already = bool(user.get("totp_enabled") and user.get("totp_secret_enc"))
+    # Reuse the existing secret if one exists (stable across reloads AND lets an
+    # enrolled Director re-scan the SAME key on a new device — no lockout dead-end),
+    # otherwise mint a fresh one.
     if user.get("totp_secret_enc"):
         secret = _dec(user["totp_secret_enc"])
     else:
@@ -156,7 +155,8 @@ async def twofa_setup(request: Request, authorization: Optional[str] = Header(No
         await db.users.update_one({"user_id": user["user_id"]},
                                   {"$set": {"totp_secret_enc": _enc(secret), "totp_enabled": False}})
     otpauth = pyotp.totp.TOTP(secret).provisioning_uri(name=user["email"], issuer_name=ISSUER)
-    return {"ok": True, "already_enrolled": False, "otpauth_url": otpauth,
+    # Always return the QR so the setup screen can render it regardless of state.
+    return {"ok": True, "already_enrolled": already, "otpauth_url": otpauth,
             "secret": secret, "qr_data_url": _qr_data_url(otpauth)}
 
 

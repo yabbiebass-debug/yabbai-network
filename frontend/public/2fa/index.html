@@ -72,14 +72,15 @@ async function init(){
   }
   if(s.already_enrolled){
     $('title').innerHTML = 'Two-factor <em>check</em>';
-    $('lead').textContent = 'Enter the current 6-digit code from Google Authenticator for '+ (me.email||'your account') +'.';
+    $('lead').textContent = 'Enter the current 6-digit code from Google Authenticator for '+ (me.email||'your account') +'. Lost your device? Re-scan the QR below with the same account.';
   } else {
     $('title').innerHTML = 'Set up <em>Google Authenticator</em>';
-    $('lead').textContent = 'Add '+(me.email||'your account')+' to Google Authenticator, then confirm the code.';
-    $('enroll').style.display='block';
-    $('secret').textContent = s.secret;
-    if(s.qr_data_url){ $('qrimg').src = s.qr_data_url; }
+    $('lead').textContent = 'Add '+(me.email||'your account')+' to Google Authenticator, then confirm the 6-digit code.';
   }
+  // Always render the QR + manual key so setup/recovery is never a dead-end.
+  $('enroll').style.display='block';
+  $('secret').textContent = s.secret;
+  if(s.qr_data_url){ $('qrimg').src = s.qr_data_url; }
   $('code').focus();
 }
 
