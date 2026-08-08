@@ -785,30 +785,10 @@ create table if not exists signals (
 
 -- ---------- EXPANDED CATALOG: help tiers from hobbyist to startup ----------
 -- (These complement the agency packages; smaller entry points = wider funnel.)
-insert into vault_products
-(owner, slug, title, tagline, description, includes, price_aud, badge, sort, config_schema, stripe_link, gumroad_url)
-select 'PASTE_DIRECTOR_USER_ID', x.slug, x.title, x.tagline, x.description, x.includes, x.price, x.badge, x.sort, x.cfg::jsonb, 'PASTE_STRIPE_LINK', 'PASTE_GUMROAD_URL'
-from (values
-  ('ai-unstuck-call','AI Unstuck — 30-min Fix Session',
-   'You''re building with AI and hit a wall. We unstick it, live, in 30 minutes.',
-   'A focused screen-share for anyone building with AI — hobbyist to founder. Bring your bug, your broken prompt, your stuck deploy, your "it worked yesterday". We diagnose it and get you moving, then send a written recap.',
-   array['30-min live screen-share','Diagnosis + working fix or clear path','Written recap with next steps','Any stack — prompts, code, deploys, automations'],
-   49,'ENTRY',5,
-   '{"goal":"prep for their specific stuck point","ask_about":["what they''re building","exact error or wall","stack/tools","what they''ve tried"]}'),
-  ('vibe-coder-rescue','Vibe-Coder Project Rescue',
-   'Your AI-built project sprawled into a mess. We refactor it into something shippable.',
-   'For vibe-coders whose project grew faster than its structure. We clean the mess (the weeds), keep what works, and hand back a tidy, deployable codebase plus a map of how it fits together.',
-   array['Codebase review + cleanup plan','Refactor of the worst tangles','Deploy + structure guidance','Loom walkthrough of the tidied project'],
-   199,null,15,
-   '{"goal":"scope the rescue","ask_about":["what the project does","what tools built it","where it breaks","hosted where"]}'),
-  ('startup-automation-audit','Startup Automation Audit',
-   'A founder''s map of every manual task an AI/automation could be doing instead.',
-   'For small startups: we audit your operations and hand back a prioritised list of what to automate first, which tools to use, and the rough ROI of each — so you spend build time where it pays.',
-   array['Ops + workflow audit','Prioritised automation roadmap','Tool recommendations per task','Quick-win list you can start this week'],
-   149,'NEW',25,
-   '{"goal":"understand their ops","ask_about":["what the startup does","team size","biggest time-sinks","current tools"]}')
-) as x(slug,title,tagline,description,includes,price,badge,sort,cfg)
-on conflict (slug) do nothing;
+-- NOTE: seed insert intentionally omitted here. It requires a real Director
+-- auth.users UUID for `owner` (NOT NULL FK). Seed catalog rows from the app
+-- once signed in, or run a separate INSERT with your actual director user id.
+-- Leaving placeholders in this file would abort the whole SQL run.
 
 -- =====================================================================
 -- RLS
