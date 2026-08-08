@@ -70,7 +70,21 @@
 
   <div class="eyebrow">Connected wallets &amp; live balances</div>
   <div class="grid" id="wallets"><div class="empty">No wallets connected yet.</div></div>
-  <div class="row" style="margin-top:12px"><button class="btn sm" id="refresh">Refresh balances</button></div>
+  <div class="row" style="margin-top:12px;justify-content:space-between">
+    <button class="btn sm" id="refresh">Refresh balances</button>
+    <span style="font-family:var(--disp);font-size:16px;color:var(--green)">Total: <span id="grandTotal">$0</span></span>
+  </div>
+
+  <div class="eyebrow">GoldScout opportunities — scam-filtered, sign to approve</div>
+  <div class="card">
+    <p class="hint" style="margin-top:0">Paste any airdrop / quest / staking opportunity. GoldScout scores it for drainer patterns first. If it's not HIGH-risk, one tap opens a wallet <b>message</b> signature to log your explicit approval — no funds move; you execute the swap yourself.</p>
+    <div class="row" style="margin-top:10px">
+      <input id="oppTitle" placeholder="Title (e.g. Jupiter LFG staking)" style="flex:1;min-width:180px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:10px;border-radius:3px;font-family:var(--mono);font-size:12px" data-testid="opp-title">
+      <input id="oppUrl" placeholder="https://…" style="flex:1;min-width:180px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:10px;border-radius:3px;font-family:var(--mono);font-size:12px" data-testid="opp-url">
+      <button class="btn sm" id="oppAnalyze" data-testid="opp-analyze">Scan</button>
+    </div>
+    <div id="oppResult" style="margin-top:12px"></div>
+  </div>
 
   <div class="eyebrow">Execution — human-approved, wallet-signed</div>
   <div class="warn">
@@ -141,7 +155,8 @@ async function loadWallets(){
         <span class="chip">${w.provider}</span>
       </div>
       <div class="addr">${short(w.address)}</div>
-      <div class="bal" data-bal>… <small>${c.symbol||''}</small></div>
+      <div class="bal" data-total>… <small>USD</small></div>
+      <div class="tokens" data-tokens style="margin-top:8px;font-size:11px"></div>
       <div class="row" style="margin-top:8px">
         <a class="btn sm" href="${(c.explorer||'#')}/address/${w.address}" target="_blank">Explorer ↗</a>
       </div>
@@ -151,20 +166,79 @@ async function loadWallets(){
 }
 
 async function refreshBalances(){
-  document.querySelectorAll('.wal').forEach(async el=>{
+  let grand = 0;
+  const cards = [...document.querySelectorAll('.wal')];
+  await Promise.all(cards.map(async el=>{
     const chain=el.dataset.chain, addr=el.dataset.addr;
-    const b = el.querySelector('[data-bal]');
+    const tEl = el.querySelector('[data-total]'), listEl = el.querySelector('[data-tokens]');
     try{
-      const d = await fetch(`${ORIGIN}/api/wallet/balance?chain=${chain}&address=${addr}`).then(r=>r.json());
-      b.innerHTML = d.ok ? (Number(d.balance).toFixed(5)+' <small>'+d.symbol+'</small>') : '<small style="color:var(--red)">error</small>';
-    }catch(e){ b.innerHTML='<small style="color:var(--red)">error</small>'; }
-  });
+      const d = await fetch(`${ORIGIN}/api/wallet/tokens?chain=${chain}&address=${addr}`).then(r=>r.json());
+      if(d.ok){
+        grand += d.total_usd||0;
+        tEl.innerHTML = '$'+Number(d.total_usd||0).toLocaleString(undefined,{maximumFractionDigits:2})+' <small>USD</small>';
+        listEl.innerHTML = (d.tokens||[]).filter(t=>t.amount>0).map(t=>
+          `<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding:4px 0">
+             <span>${t.symbol}</span>
+             <span style="color:var(--dim)">${Number(t.amount).toFixed(4)}${t.value_usd?` · <span style="color:var(--green)">$${Number(t.value_usd).toLocaleString(undefined,{maximumFractionDigits:2})}</span>`:''}</span>
+           </div>`).join('') || '<span style="color:var(--dim2)">No tokens</span>';
+      } else { tEl.innerHTML='<small style="color:var(--amber)">busy</small>'; }
+    }catch(e){ tEl.innerHTML='<small style="color:var(--red)">error</small>'; }
+  }));
+  const g = document.getElementById('grandTotal');
+  if(g) g.textContent = '$'+grand.toLocaleString(undefined,{maximumFractionDigits:2});
 }
 
 $('mmConnect').onclick=connectMetaMask;
 $('phConnect').onclick=connectPhantom;
 $('refresh').onclick=refreshBalances;
 $('jupBtn').onclick=()=>window.open('https://jup.ag/','_blank');
+
+async function signApprove(opp){
+  const msg = `YABBAI approval\nOpportunity: ${opp.title||opp.url||'(untitled)'}\nURL: ${opp.url||'-'}\nTime: ${new Date().toISOString()}`;
+  let chain, address, signature;
+  if(window.ethereum){
+    const accts = await window.ethereum.request({method:'eth_requestAccounts'});
+    address = accts[0];
+    signature = await window.ethereum.request({method:'personal_sign', params:[msg, address]});
+    chain = 'ethereum';
+  } else if(window.solana && window.solana.isPhantom){
+    const resp = await window.solana.connect();
+    address = resp.publicKey.toString();
+    const sig = await window.solana.signMessage(new TextEncoder().encode(msg),'utf8');
+    signature = btoa(String.fromCharCode(...sig.signature));
+    chain = 'solana';
+  } else { throw new Error('No wallet extension (MetaMask/Phantom) found'); }
+  return fetch(ORIGIN+'/api/goldscout/approve',{method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({opportunity:opp, chain, address, message:msg, signature})});
+}
+
+async function analyzeOpp(){
+  const title=$('oppTitle').value.trim(), url=$('oppUrl').value.trim();
+  if(!title && !url){ $('oppResult').innerHTML='<span class="hint">Enter a title or URL first.</span>'; return; }
+  const res=$('oppResult'); res.innerHTML='<span class="hint">Scanning for drainer patterns…</span>';
+  const d=await fetch(ORIGIN+'/api/goldscout/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,url})}).then(r=>r.json());
+  const a=d.analysis; const color=a.riskScore>=70?'var(--red)':a.riskScore>=40?'var(--amber)':'var(--green)';
+  res.innerHTML=`<div style="border:1px solid ${color};border-radius:6px;padding:12px">
+    <div style="font-family:var(--disp);color:${color}" data-testid="opp-score">Risk ${a.riskScore}/100 · ${a.riskLevel.toUpperCase()}</div>
+    <div class="hint" style="margin-top:6px">${a.verdict}</div>
+    ${a.flags.length?'<ul style="margin:8px 0 0 16px;color:var(--dim);font-size:11px">'+a.flags.map(f=>'<li>'+f+'</li>').join('')+'</ul>':''}
+    <div class="row" style="margin-top:10px">
+      ${a.riskScore<70?'<button class="btn sm green" id="oppSign" data-testid="opp-sign">Sign to approve</button>':'<span style="color:var(--red);font-size:11px">Blocked — HIGH risk, cannot approve.</span>'}
+    </div>
+    <div id="signStatus" class="status"></div></div>`;
+  const sb=document.getElementById('oppSign');
+  if(sb) sb.onclick=async()=>{
+    const st=document.getElementById('signStatus'); st.style.color='var(--dim2)'; st.textContent='Awaiting wallet signature…';
+    try{
+      const r=await signApprove({title,url});
+      const j=await r.json().catch(()=>({}));
+      if(r.ok){ st.style.color='var(--green)'; st.textContent='✓ Approved & signed (risk '+j.risk_score+'). Logged to the ledger.'; }
+      else { st.style.color='var(--red)'; st.textContent='✗ '+(j.detail||'failed'); }
+    }catch(e){ st.style.color='var(--red)'; st.textContent='✗ '+(e.message||e); }
+  };
+}
+$('oppAnalyze').onclick=analyzeOpp;
 
 (async ()=>{ if(!await guard()) return; await loadChains(); await loadWallets(); })();
 </script>

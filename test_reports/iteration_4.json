@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 4 validated the two new V2 features: (A) /api/wallet/tokens live token balances (native + ERC-20/SPL, Coinbase spot prices, stables pinned to $1, total_usd) across ethereum/base/solana + 400 on invalid chain + no-crash on empty address; (B) GoldScout opportunity signing pipeline — /analyze correctly scores HIGH-risk (airdrop+seed-phrase = 100/critical) and CLEAN (Jupiter staking = 0/low); /approve is auth+2FA gated (401 no session), blocks HIGH-risk with 400, records CLEAN with risk_score, and /approvals returns the row WITHOUT the signature field. Backend: 13/13 pytest cases pass against live public RPCs (ethereum-rpc.publicnode.com, base-rpc.publicnode.com, api.mainnet-beta.solana.com) and live Coinbase spot. Frontend /wallets Playwright run: seeded verified session + 1 wallet row, page rendered (no /login or /2fa redirect), wallet card showed $15,862.15 USD with ETH/WETH/USDT/USDC/DAI itemised, grandTotal matched card total (>0), HIGH-risk opportunity ('Claim free ETH airdrop' → http://jupiter-airdrop-claim.xyz) produced Risk 100/100 CRITICAL badge and NO opp-sign button (blocked correctly), CLEAN opportunity (Jupiter staking → https://jup.ag/) produced Risk 0/100 LOW badge WITH opp-sign button visible. Regression: /api/wallet/chains still returns 6 chains, /api/network/status all_live=true.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      { "screen": "/wallets", "issues": [
+        "'Total: $...' grandTotal label is right-aligned in the same row as the Refresh button — reads well, but on <900px viewports the two flex items collide with wrapping; consider a small margin-top on the grandTotal span for mobile.",
+        "Token rows under a wallet card lack a subtle header (Symbol | Amount | USD) — for wallets with 5+ tokens it becomes a dense column of numbers."
+      ] }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tokens_goldscout.py",
+    "/app/test_reports/pytest/iter4_results.xml"
+  ],
+  "action_items": [
+    "None blocking. Nice-to-have: (a) return an explicit price_source per token (coinbase vs pinned) so UI can flag $0 prices for exotic assets; (b) minor UX polish on wallets/index.html noted above."
+  ],
+  "critical_code_review_comments": [
+    "wallet_router.tokens catches Exception broadly and returns ok=false — good UX but swallows underlying RPC error class; consider logging the exception server-side for observability.",
+    "wallet_router._cg_prices pins stables (usd-coin, tether, dai, binance-usd) to $1.0 — correct given Coinbase is the only reliable path from this host. WBTC uses CB_TO_CB 'BTC' which correctly maps to the BTC-USD Coinbase pair.",
+    "wallet_router.tokens: EVM path issues 1 RPC call per curated ERC-20 sequentially inside the same AsyncClient — currently fast but scales O(n) with token list; consider batching via multicall or asyncio.gather for larger lists.",
+    "goldscout_router.approve: re-runs analyze_opportunity server-side before persistence — good, cannot be bypassed by client-tampered score. riskScore>=70 -> 400 with clear message.",
+    "goldscout_router.approvals: correctly projects {_id:0, signature:0} — verified live that 'signature' field is absent from the response body. This is the right posture (signatures are sensitive) and also silently strips ObjectId.",
+    "ApproveBody accepts opportunity as raw dict — no size/shape guard. A pathological client could send a huge blob; consider a size cap or Pydantic sub-model."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tokens_goldscout.py",
+    "/app/test_reports/pytest/iter4_results.xml"
+  ],
+  "success_rate": { "backend": "100% (13/13)", "frontend": "100% (all wallets + opportunity panel checks passed)" },
+  "test_credentials": "Ephemeral Mongo-seeded session (mfa_verified=true) + 1 wallet row for vitalik.eth used for the Playwright run; cleaned up post-run. Pytest fixtures seed+teardown their own users/sessions/approvals.",
+  "seed_data_creation": "Ephemeral (all cleaned).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 4 (tokens + GoldScout signing) is green. Live public RPCs + Coinbase spot remain the only external live deps for /tokens; a transient 0 price on an exotic token is acceptable per the task note. MetaMask/Phantom extensions still can't be automated — Sign-to-approve button presence/absence is the correct proxy and both branches were verified. Grand total live on vitalik.eth was ~$15.8k during this run (ETH ~$1918, stables pinned to $1). If future iterations broaden the curated token list, keep an eye on the sequential eth_call pattern in wallet_router.tokens.",
+  "rca of the issue": "N/A — no bugs found this iteration."
+}
