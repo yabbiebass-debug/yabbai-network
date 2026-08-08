@@ -49,6 +49,12 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - **Supabase**: new project wired in hub; consolidated schema (migrations 001–009) served at `/sql/yabbai_schema.sql` for SQL-Editor paste (service_role/DB access not provided, so data runs via the unified backend meanwhile).
 - Tests: iteration_3 — 17/17 backend + 7/7 frontend pass, no blocking issues.
 
+## Phase 4 — Token balances, GoldScout signing, Supabase connector (2026-06-20)
+- **Token balances + USD** on `/wallets`: native + curated ERC-20 (via eth_call balanceOf) + SPL (getTokenAccountsByOwner) with live USD via **Coinbase spot** (CoinGecko/Binance rate-limited/geo-blocked here); per-wallet + grand total. `GET /api/wallet/tokens`. Verified ~$15.8k live on vitalik.eth.
+- **GoldScout opportunity signing**: `/api/goldscout/analyze` (scam score), `/api/goldscout/approve` (auth+2FA; re-scores server-side, blocks riskScore≥70, logs wallet **message** signature to `goldscout_approvals` — no funds move), `/api/goldscout/approvals`. UI panel on `/wallets`: Scan → HIGH-risk blocked / clean → "Sign to approve" (MetaMask personal_sign / Phantom signMessage).
+- **Supabase connector (secure secret input)**: Settings → Supabase section takes a masked `service_role` key (stored server-side, never echoed) + project URL. `GET /api/supabase/status` (auth+2FA) probes known tables; `GET /api/supabase/table/{name}` service-role read proxy (whitelisted). Consolidated schema at `/sql/yabbai_schema.sql`. Data-surface wiring pending user pasting the key + running the SQL.
+- Tests: iteration_4 — 13/13 backend + all frontend pass.
+
 ## Deferred backlog (next phases)
 - P1: Supabase migrations (001–009) + the 6 data web surfaces (Mission Control /app, Realm OS,
   Agency Floor, Catalog Studio, Client Portal, Vault) wired to Supabase or re-implemented as

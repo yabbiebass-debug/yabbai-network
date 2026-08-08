@@ -75,6 +75,18 @@
   <div class="eyebrow">Model tiers — drag the priority with the arrows</div>
   <div id="tiers"></div>
 
+  <div class="eyebrow">Supabase — live Postgres data layer</div>
+  <div class="card" id="sbCard">
+    <div class="chead"><h3><i>▸</i> Supabase</h3><span class="keyset" id="sbKeyset">not set</span></div>
+    <label>Project URL</label>
+    <input id="supabase_url" placeholder="https://xxxx.supabase.co">
+    <label>service_role key — secret, stored server-side, never shown again</label>
+    <input type="password" id="supabase_service_key" placeholder="paste service_role key" data-testid="supabase-key">
+    <div class="row"><button class="btn sm green" id="sbTest" data-testid="supabase-test">Save &amp; test connection</button></div>
+    <div class="test" id="sbResult"></div>
+    <div class="hint">Supabase → Project Settings → API → <b>service_role</b>. First run <a href="/sql/yabbai_schema.sql" target="_blank">the schema SQL</a> in the SQL Editor, then test — I'll show which tables are live.</div>
+  </div>
+
   <div class="eyebrow soon-label">Payments & Wallet — coming next</div>
   <div class="card soon">
     <div class="chead"><h3><i>▸</i> Stripe · PayPal · Phantom</h3><span class="soonbadge">scaffolded</span></div>
@@ -135,6 +147,38 @@ function render(){
   loaded = true;
   const sb = document.getElementById('save');
   if(sb) sb.disabled = false;
+  renderSupabase();
+}
+
+function renderSupabase(){
+  const u = $('supabase_url'); if(u && !u.value) u.value = S.supabase_url || '';
+  const ks = S.secrets_set && S.secrets_set.supabase_service_key;
+  const badge = $('sbKeyset');
+  if(badge){ badge.textContent = ks ? 'configured' : 'not set'; badge.className = 'keyset '+(ks?'yes':''); }
+  const btn = $('sbTest');
+  if(btn) btn.onclick = supabaseTest;
+}
+
+async function supabaseTest(){
+  const res = $('sbResult'); res.className='test'; res.textContent='Saving & testing…';
+  const url = $('supabase_url').value.trim();
+  const key = $('supabase_service_key').value.trim();
+  const payload = { supabase_url: url };
+  if(key) payload.supabase_service_key = key;
+  await fetch(API+'/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d = await fetch(API+'/api/supabase/status',{credentials:'include'}).then(r=>r.json()).catch(()=>null);
+  if(!d){ res.className='test err'; res.textContent='Could not reach the connector.'; return; }
+  if(!d.key_set){ res.className='test err'; res.textContent='No service_role key saved yet.'; return; }
+  if(d.connected){
+    const present = Object.entries(d.tables).filter(([k,v])=>v).map(([k])=>k);
+    res.className='test ok';
+    res.innerHTML = `✓ Connected. ${d.tables_present}/${d.tables_total} tables live: ${present.slice(0,8).join(', ')}${present.length>8?'…':''}`;
+  } else {
+    res.className='test err';
+    res.innerHTML = `Key saved but no tables found. Run <a href="/sql/yabbai_schema.sql" target="_blank" style="color:var(--purple)">the schema SQL</a> in Supabase, then test again.`;
+  }
+  $('supabase_service_key').value = '';
+  const badge=$('sbKeyset'); if(badge){ badge.textContent='configured'; badge.className='keyset yes'; }
 }
 
 function renderFlow(){

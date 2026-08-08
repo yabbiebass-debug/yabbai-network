@@ -18,7 +18,7 @@ SETTINGS_ID = "network_settings"
 
 # secret fields are stored but never echoed back to the client
 SECRET_FIELDS = {
-    "nvidia_api_key", "yabbai_api_key",
+    "nvidia_api_key", "yabbai_api_key", "supabase_service_key",
     "stripe_secret_key", "paypal_secret", "google_client_secret", "tavily_api_key",
 }
 
@@ -32,6 +32,7 @@ DEFAULTS = {
     "yabbai_enabled": True,
     "yabbai_url": "",
     "yabbai_model": "llama3.2",
+    "supabase_url": "https://gecwxvwziktvaiwdhzeg.supabase.co",
 }
 
 
