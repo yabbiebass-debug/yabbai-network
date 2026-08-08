@@ -13,7 +13,7 @@ from Mongo at request time, so rotating a key never needs a restart.
 import os
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -23,6 +23,7 @@ from openai import AsyncOpenAI
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 
 from network_db import get_raw_settings, DEFAULTS
+from auth_router import require_director
 
 load_dotenv()
 
@@ -120,7 +121,7 @@ async def health():
 
 
 @router.get("/providers")
-async def providers():
+async def providers(user=Depends(require_director)):
     s = await get_raw_settings()
     return {
         "route_order": s.get("route_order") or DEFAULTS["route_order"],
@@ -139,7 +140,7 @@ async def providers():
 
 
 @router.get("/nvidia/models")
-async def nvidia_models():
+async def nvidia_models(user=Depends(require_director)):
     s = await get_raw_settings()
     key = s.get("nvidia_api_key")
     if not key:
@@ -157,7 +158,7 @@ class TestBody(BaseModel):
 
 
 @router.post("/test")
-async def test_provider(body: TestBody):
+async def test_provider(body: TestBody, user=Depends(require_director)):
     s = await get_raw_settings()
     t = body.provider
     try:
@@ -182,14 +183,14 @@ class ChatBody(BaseModel):
 
 
 @router.post("/chat")
-async def chat(body: ChatBody):
+async def chat(body: ChatBody, user=Depends(require_director)):
     res = await route_complete(body.system or SYSTEM_DEFAULT, body.message, body.session_id)
     return {"ok": True, "type": "message", "content": res["content"],
             "tier": res["tier"], "model": res["model"]}
 
 
 @router.post("/chat/stream")
-async def chat_stream(body: ChatBody):
+async def chat_stream(body: ChatBody, user=Depends(require_director)):
     system = body.system or SYSTEM_DEFAULT
 
     async def gen():
@@ -254,7 +255,7 @@ class ScopeBody(BaseModel):
 
 
 @router.post("/scope-brief")
-async def scope_brief(body: ScopeBody):
+async def scope_brief(body: ScopeBody, user=Depends(require_director)):
     system = ("You are YABBAI's scoping agent. Output STRICT JSON only with keys: title, summary, "
               "deliverables (array), milestones (array of {name, outcome}), assumptions (array), price_band. No markdown.")
     res = await route_complete(system, f"Brief: {body.brief}\nBudget: {body.budget}\nTimeline: {body.timeline}", "scope")
@@ -269,7 +270,7 @@ class CallGuideBody(BaseModel):
 
 
 @router.post("/call-guide")
-async def call_guide(body: CallGuideBody):
+async def call_guide(body: CallGuideBody, user=Depends(require_director)):
     system = ("You are YABBAI's Caller agent. Output STRICT JSON only with keys: opener, "
               "discovery_questions (array), objections (array of {objection, response}), close. No markdown.")
     res = await route_complete(system, f"Lead: {body.lead_name}\nCompany: {body.company}\nStage: {body.stage}\nContext: {body.context}", "callguide")
@@ -282,7 +283,7 @@ class CatalogBody(BaseModel):
 
 
 @router.post("/catalog-agent")
-async def catalog_agent(body: CatalogBody):
+async def catalog_agent(body: CatalogBody, user=Depends(require_director)):
     system = ("You are YABBAI's Auditor agent. Output STRICT JSON only with keys: name, one_liner, "
               "audit_score (0-100 integer), verdict ('list' or 'hold'), strengths (array), risks (array), required_proof (array). No markdown.")
     res = await route_complete(system, f"Product idea: {body.idea}\nAudience: {body.audience}", "catalog")

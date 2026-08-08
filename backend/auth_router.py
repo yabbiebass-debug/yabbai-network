@@ -67,6 +67,16 @@ def _public_user(user: dict) -> dict:
     return {k: v for k, v in user.items() if k not in ("totp_secret_enc",)}
 
 
+async def require_director(request: Request, authorization: Optional[str] = Header(None)):
+    """FastAPI dependency: caller must be an authed, 2FA-verified Director."""
+    session, user = await _session_and_user(request, authorization)
+    if not user:
+        raise HTTPException(401, "Not authenticated")
+    if not session.get("mfa_verified"):
+        raise HTTPException(403, "2FA required")
+    return user
+
+
 @router.post("/session")
 async def create_session(response: Response, x_session_id: Optional[str] = Header(None)):
     if not x_session_id:

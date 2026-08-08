@@ -405,7 +405,7 @@ function renderRoutePanel(){
     <h3>THE ROUTED BRAIN — self-healing, multi-tier</h3>
     <div class="routeflow" id="routeTiers"><span class="hint">loading routing…</span></div>
     <p class="hint">Every agent calls one proxy; it walks your tier list until one answers — the clan never goes dark. Configure the order, paste your NVIDIA NIM key (free) and your YABBAI Local / Ollama box in <a href="/settings/index.html" style="color:var(--purple)">⚙ Routing &amp; Connections</a>.</p>`;
-  fetch(PY.ai + '/providers').then(r=>r.json()).then(d=>{
+  fetch(PY.ai + '/providers', {credentials:'include'}).then(r=>r.json()).then(d=>{
     const lbl = {nvidia:'NVIDIA NIM', emergent:'Claude', yabbai:'YABBAI Local'};
     const order = d.active_order && d.active_order.length ? d.active_order : ['emergent'];
     const tiers = d.tiers || {};

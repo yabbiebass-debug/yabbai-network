@@ -13,11 +13,13 @@ NoKeySigner) is the ORIGINAL revenue_system code, mounted unchanged.
 import os
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 
 from network_db import get_raw_settings, save_settings, sanitize
+from auth_router import require_director
 
 load_dotenv()
 
@@ -44,7 +46,26 @@ async def _ops_health():
 
 # ── main gateway app ──────────────────────────────────────────────────────────
 app = FastAPI(title="YABBAI Network Gateway", version="2.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"],
+
+_ALLOWED = [o for o in [
+    "https://revenue-nexus-2.preview.emergentagent.com",
+    "https://revenue-nexus-2.emergent.host",
+] if o]
+
+
+class SecurityHeaders(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        resp = await call_next(request)
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+        resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return resp
+
+
+app.add_middleware(SecurityHeaders)
+app.add_middleware(CORSMiddleware, allow_origins=_ALLOWED, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
 
@@ -71,12 +92,12 @@ async def network_status():
 
 # ── connection settings (LLM routing + payments/auth — configured in /settings UI) ─
 @app.get("/api/settings")
-async def get_settings():
+async def get_settings(user=Depends(require_director)):
     return sanitize(await get_raw_settings())
 
 
 @app.put("/api/settings")
-async def put_settings(payload: dict):
+async def put_settings(payload: dict, user=Depends(require_director)):
     await save_settings(payload)
     return {"ok": True}
 

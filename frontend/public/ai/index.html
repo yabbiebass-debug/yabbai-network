@@ -53,6 +53,14 @@
 </div>
 <script>
 const API = window.location.origin + '/api/ai';
+const ORIGIN = window.location.origin;
+// Gate: this console calls the (now-protected) AI endpoints — require a signed-in, 2FA'd Director.
+(async () => {
+  let me=null;
+  try{ const r=await fetch(ORIGIN+'/api/auth/me',{credentials:'include'}); if(r.ok) me=await r.json(); }catch(e){}
+  if(!me){ window.location.replace('/login/index.html'); return; }
+  if(me.mfa_required && !me.mfa_verified){ window.location.replace('/2fa/index.html'); return; }
+})();
 const log = document.getElementById('log');
 const inp = document.getElementById('inp');
 const send = document.getElementById('send');
@@ -69,7 +77,7 @@ async function ask(){
   const target = add('ai','', 'YABBAI');
   send.disabled = true;
   try{
-    const r = await fetch(API+'/chat/stream', {method:'POST',headers:{'Content-Type':'application/json'},
+    const r = await fetch(API+'/chat/stream', {method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
       body: JSON.stringify({message:q, session_id:'ai-console'})});
     const reader = r.body.getReader(); const dec = new TextDecoder();
     while(true){ const {done,value} = await reader.read(); if(done) break;

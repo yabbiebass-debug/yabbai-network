@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 7 — Security sweep verification (backend + frontend). Created /app/backend/tests/test_security_sweep.py (34 tests, 34/34 PASS). Verified: (1) UNAUTH → 401 on all 10 gated endpoints (GET /api/settings, PUT /api/settings, GET /api/ai/providers, GET /api/ai/nvidia/models, POST /api/ai/chat, /chat/stream, /test, /scope-brief, /call-guide, /catalog-agent). (2) AUTH but MFA-unverified session → 403 on those same 10 endpoints. (3) PUBLIC still open: /api/ai/health 200, POST /api/ai/diagnose 200 (lead magnet returns plan JSON), /api/wallet/chains 200, /api/wallet/tokens?chain=ethereum&address=0x0..0 200. (4) AUTH+MFA-verified Director: GET /api/settings 200 sanitized, PUT /api/settings {route_order:[nvidia,emergent,yabbai]} 200 and persisted, /api/ai/providers 200 with tiers map, /api/ai/chat {message:'Reply with OK'} 200 ok=true content='OK'. (5) Security headers present on /api/health: X-Frame-Options=SAMEORIGIN, X-Content-Type-Options=nosniff, Referrer-Policy=strict-origin-when-cross-origin, Strict-Transport-Security set. (6) Regression: /api/auth/me returns mfa_verified=true; /api/goldscout/analyze 200; /api/network/status all_live=true; /api/supabase/status key_set=true (env-wired). Frontend Playwright: (a) NO cookie → /ai redirects to /login/index.html; (b) WITH session cookie (httpOnly, secure, sameSite=None, mfa_verified=true) → /settings/index.html calls /api/settings with credentials and gets 200; /hub/index.html calls /api/ai/providers with credentials and gets 200; /ai/index.html does NOT redirect and successfully streams a chat reply ('OK') from /api/ai/chat/stream. Security hardening implementation is CORRECT and COMPLETE.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/hub/index.html (authed load)", "issues": ["Console shows 6× 404 errors for some lazy asset(s) on /hub — non-blocking, page rendered and providers panel loaded 200. Consider identifying which URL(s) 404 and either seeding the resource or removing the fetch to keep the console clean."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_security_sweep.py",
+    "/app/test_reports/pytest/iter7_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: /app/backend/.env still has CORS_ORIGINS=\"*\" (unused now that server.py hardcodes _ALLOWED). Delete the stale key or refactor server.py to read from env so the .env matches production intent.",
+    "OPTIONAL: Chase the 6× 404s on /hub/index.html — likely stale asset paths; keeps the browser console clean.",
+    "OPTIONAL: Consider caching /api/auth/me on the /ai console (currently blocks on a network round-trip before rendering; a small skeleton would improve perceived load)."
+  ],
+  "critical_code_review_comments": [
+    "auth_router.require_director correctly returns 401 (no session) vs 403 (session present, mfa_verified false) — matches spec.",
+    "SecurityHeaders middleware ordered BEFORE CORSMiddleware in server.py — Starlette runs them outer→inner on the response path, so both apply. Verified in-flight: all four required headers land on /api/health.",
+    "CORS allow_origins is a hardcoded list of two preview/prod hostnames with allow_credentials=True — safe (never '*' with credentials). Good.",
+    "ai_router.diagnose is correctly LEFT PUBLIC (no Depends), while all other AI endpoints are gated with Depends(require_director). health is public. Matches lead-magnet intent.",
+    "settings PUT sanitize behavior: raw secrets (nvidia_api_key, yabbai_api_key, supabase_service_key) are NOT echoed back by GET /api/settings — sanitize() masks them. Good.",
+    "MINOR: /api/settings CORS_ORIGINS env var is dead code in server.py (hardcoded list used instead). Either remove env line or wire it up so ops can rotate origins without a code change.",
+    "MINOR: The /ai page issues an unnecessary sequential fetch to /api/auth/me before revealing the chat UI — could be non-blocking (render skeleton then guard). Not a security issue."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_security_sweep.py (new)"
+  ],
+  "success_rate": {"backend": "100% (34/34)", "frontend": "100% (5/5 flows: unauth-redirect, settings-authed, hub-providers, ai-authed-no-redirect, ai-chat-stream)"},
+  "test_credentials": "Seeded ephemeral users + sessions in test_database.users / test_database.user_sessions per /app/auth_testing.md (allowlisted email yabbiebass@gmail.com for the verified fixture, random email for the unverified). Cleaned up in fixture teardown + explicit post-run cleanup for frontend seed.",
+  "seed_data_creation": "Two ephemeral (module-scoped) test users + sessions per pytest run: one mfa_verified=true (allowlisted email), one mfa_verified=false. Also one ephemeral session for the Playwright frontend flows, cleaned up after the run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Security sweep is verified end-to-end. If future changes touch auth_router.require_director, ai_router.py Depends, server.py SecurityHeaders/CORS, or the gating in /settings|/hub|/ai HTML pages, re-run /app/backend/tests/test_security_sweep.py. To seed: insert a user in test_database.users with email in AUTH_ALLOWLIST + a user_sessions doc with mfa_verified:true. Cookie is httpOnly/secure/sameSite=None, so playwright must add it via context.add_cookies (not document.cookie).",
+  "rca of the issue": "N/A — no bugs found."
+}

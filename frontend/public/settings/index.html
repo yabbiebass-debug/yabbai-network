@@ -119,7 +119,7 @@ async function load(){
     if(me.mfa_required && !me.mfa_verified){ window.location.replace('/2fa/index.html'); return; }
   }catch(e){ window.location.replace('/login/index.html'); return; }
   try{
-    S = await fetch(API+'/api/settings').then(r=>{ if(!r.ok) throw new Error('settings '+r.status); return r.json(); });
+    S = await fetch(API+'/api/settings', {credentials:'include'}).then(r=>{ if(!r.ok) throw new Error('settings '+r.status); return r.json(); });
   }catch(e){
     document.getElementById('flow').innerHTML = '<span style="color:var(--red)">Could not load settings — '+e+'</span>';
     return;
@@ -165,7 +165,7 @@ async function supabaseTest(){
   const key = $('supabase_service_key').value.trim();
   const payload = { supabase_url: url };
   if(key) payload.supabase_service_key = key;
-  await fetch(API+'/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  await fetch(API+'/api/settings',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d = await fetch(API+'/api/supabase/status',{credentials:'include'}).then(r=>r.json()).catch(()=>null);
   if(!d){ res.className='test err'; res.textContent='Could not reach the connector.'; return; }
   if(!d.key_set){ res.className='test err'; res.textContent='No service_role key saved yet.'; return; }
@@ -268,7 +268,7 @@ function collect(){
 async function saveAll(silent){
   if(!loaded || !order.length) return;   // never PUT before hydration
   const p = collect();
-  await fetch(API+'/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+  await fetch(API+'/api/settings',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
   if(!silent){
     document.getElementById('saved').textContent = 'Saved ✓';
     setTimeout(()=>document.getElementById('saved').textContent='',2500);
@@ -292,7 +292,7 @@ function move(t,dir){
 async function loadModels(){
   await saveAll(true); // persist the key first
   const el=document.getElementById('test_nvidia'); el.className='test'; el.textContent='Loading models…';
-  const r=await fetch(API+'/api/ai/nvidia/models').then(x=>x.json());
+  const r=await fetch(API+'/api/ai/nvidia/models', {credentials:'include'}).then(x=>x.json());
   if(r.ok){
     const dl=document.getElementById('nvidia_models');
     dl.innerHTML = r.models.map(m=>`<option value="${esc(m)}">`).join('');
@@ -302,7 +302,7 @@ async function loadModels(){
 async function testTier(t){
   await saveAll(true);
   const el=document.getElementById('test_'+t); el.className='test'; el.textContent='Testing…';
-  const r=await fetch(API+'/api/ai/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:t})}).then(x=>x.json());
+  const r=await fetch(API+'/api/ai/test',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:t})}).then(x=>x.json());
   if(r.ok){ el.className='test ok'; el.textContent=`✓ ${r.model} answered: "${(r.sample||'').trim()}"`; }
   else { el.className='test err'; el.textContent='✗ '+(r.message||'failed'); }
 }
