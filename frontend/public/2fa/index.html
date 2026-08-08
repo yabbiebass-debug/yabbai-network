@@ -6,7 +6,6 @@
 <title>YABBAI — Two-factor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(153,69,255,.18);
     --purple:#9945FF;--green:#14F195;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
@@ -40,7 +39,7 @@
     <h1 id="title">Securing the <em>Director gate</em></h1>
     <p id="lead">Loading…</p>
     <div id="enroll" style="display:none">
-      <div id="qrbox"><canvas id="qr"></canvas></div>
+      <div id="qrbox"><img id="qrimg" width="200" height="200" alt="Scan this 2FA QR"></div>
       <p style="margin-bottom:6px">Scan with Google Authenticator, then enter the 6-digit code. Manual key:</p>
       <div class="secret" id="secret"></div>
     </div>
@@ -59,7 +58,18 @@ async function init(){
   try{ const r=await fetch(ORIGIN+'/api/auth/me',{credentials:'include'}); if(r.ok) me=await r.json(); }catch(e){}
   if(!me){ window.location.replace('/login/index.html'); return; }
   if(me.mfa_verified){ window.location.replace('/hub/index.html'); return; }
-  const s = await fetch(ORIGIN+'/api/auth/2fa/setup',{method:'POST',credentials:'include'}).then(r=>r.json());
+  let s;
+  try{
+    const r = await fetch(ORIGIN+'/api/auth/2fa/setup',{method:'POST',credentials:'include'});
+    if(!r.ok){
+      $('lead').innerHTML = 'Could not start 2FA setup (error '+r.status+'). <a href="#" onclick="logout();return false;" style="color:var(--purple)">Sign in again</a>.';
+      return;
+    }
+    s = await r.json();
+  }catch(e){
+    $('lead').textContent = 'Network error starting 2FA setup — refresh to retry.';
+    return;
+  }
   if(s.already_enrolled){
     $('title').innerHTML = 'Two-factor <em>check</em>';
     $('lead').textContent = 'Enter the current 6-digit code from Google Authenticator for '+ (me.email||'your account') +'.';
@@ -68,7 +78,7 @@ async function init(){
     $('lead').textContent = 'Add '+(me.email||'your account')+' to Google Authenticator, then confirm the code.';
     $('enroll').style.display='block';
     $('secret').textContent = s.secret;
-    QRCode.toCanvas($('qr'), s.otpauth_url, {width:190, margin:1}, err=>{ if(err) console.log(err); });
+    if(s.qr_data_url){ $('qrimg').src = s.qr_data_url; }
   }
   $('code').focus();
 }

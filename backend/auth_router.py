@@ -8,11 +8,14 @@ encrypted at rest with APP_ENC_KEY (Fernet).
 
 import os
 import uuid
+import io
+import base64
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 
 import httpx
 import pyotp
+import qrcode
 from fastapi import APIRouter, Request, Response, HTTPException, Header
 from pydantic import BaseModel
 from cryptography.fernet import Fernet
@@ -119,18 +122,32 @@ async def me(request: Request, authorization: Optional[str] = Header(None)):
     return out
 
 
+def _qr_data_url(otpauth: str) -> str:
+    img = qrcode.make(otpauth)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 @router.post("/2fa/setup")
 async def twofa_setup(request: Request, authorization: Optional[str] = Header(None)):
     session, user = await _session_and_user(request, authorization)
     if not user:
         raise HTTPException(401, "Not authenticated")
+    # Already fully enrolled -> nothing to show, just ask for a code.
     if user.get("totp_enabled") and user.get("totp_secret_enc"):
         return {"ok": True, "already_enrolled": True}
-    secret = pyotp.random_base32()
-    await db.users.update_one({"user_id": user["user_id"]},
-                              {"$set": {"totp_secret_enc": _enc(secret), "totp_enabled": False}})
+    # Reuse a pending secret if one exists (stable across page reloads),
+    # otherwise mint a fresh one. This prevents the "scanned QR no longer matches" bug.
+    if user.get("totp_secret_enc"):
+        secret = _dec(user["totp_secret_enc"])
+    else:
+        secret = pyotp.random_base32()
+        await db.users.update_one({"user_id": user["user_id"]},
+                                  {"$set": {"totp_secret_enc": _enc(secret), "totp_enabled": False}})
     otpauth = pyotp.totp.TOTP(secret).provisioning_uri(name=user["email"], issuer_name=ISSUER)
-    return {"ok": True, "already_enrolled": False, "otpauth_url": otpauth, "secret": secret}
+    return {"ok": True, "already_enrolled": False, "otpauth_url": otpauth,
+            "secret": secret, "qr_data_url": _qr_data_url(otpauth)}
 
 
 class CodeBody(BaseModel):
