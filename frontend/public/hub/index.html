@@ -379,7 +379,7 @@ function renderServices(){
     return `<div class="svc ${state}">
       <span class="indicator"></span>
       <span class="sname">${s.label}</span>
-      <span class="sport">:${s.port}</span>
+      <span class="sport">/api/${s.k}</span>
       ${s.k==='revenue'&&SVC.revenue.ks?'<span style="color:var(--red);font-size:9px">KILL-SW</span>':''}
     </div>`;
   }).join('');

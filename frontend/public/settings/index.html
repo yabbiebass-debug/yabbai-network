@@ -82,7 +82,7 @@
   </div>
 
   <div class="savebar">
-    <button class="btn green" id="save" data-testid="settings-save">Save all settings</button>
+    <button class="btn green" id="save" data-testid="settings-save" disabled>Save all settings</button>
     <span class="saved" id="saved"></span>
   </div>
 </div>
@@ -91,6 +91,7 @@
 const API = window.location.origin;
 let S = {};                 // current settings (sanitized)
 let order = [];             // route order
+let loaded = false;         // guards Save until the page has hydrated
 
 const TIERS = {
   nvidia:   {label:'NVIDIA NIM', accent:'free OpenAI-compatible endpoints', icon:'▸'},
@@ -103,7 +104,12 @@ async function load(){
     const a = await fetch(API+'/api/auth/me', {credentials:'include'});
     if(!a.ok){ window.location.replace('/login/index.html'); return; }
   }catch(e){ window.location.replace('/login/index.html'); return; }
-  S = await fetch(API+'/api/settings').then(r=>r.json());
+  try{
+    S = await fetch(API+'/api/settings').then(r=>{ if(!r.ok) throw new Error('settings '+r.status); return r.json(); });
+  }catch(e){
+    document.getElementById('flow').innerHTML = '<span style="color:var(--red)">Could not load settings — '+e+'</span>';
+    return;
+  }
   order = (S.route_order && S.route_order.length) ? S.route_order.slice() : ['nvidia','emergent','yabbai'];
   // ensure all three present
   ['nvidia','emergent','yabbai'].forEach(t=>{ if(!order.includes(t)) order.push(t); });
@@ -124,6 +130,9 @@ function render(){
     host.appendChild(card);
   });
   wire();
+  loaded = true;
+  const sb = document.getElementById('save');
+  if(sb) sb.disabled = false;
 }
 
 function renderFlow(){
@@ -211,6 +220,7 @@ function collect(){
 }
 
 async function saveAll(silent){
+  if(!loaded || !order.length) return;   // never PUT before hydration
   const p = collect();
   await fetch(API+'/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
   if(!silent){

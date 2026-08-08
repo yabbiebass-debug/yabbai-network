@@ -50,6 +50,8 @@ async def save_settings(payload: dict) -> None:
     for k, v in payload.items():
         if k in SECRET_FIELDS and (v is None or v == "" or v == "********"):
             continue
+        if k == "route_order" and (not isinstance(v, list) or len(v) == 0):
+            continue  # never let a client wipe the routing order
         clean[k] = v
     if clean:
         await _db.settings.update_one({"_id": SETTINGS_ID}, {"$set": clean}, upsert=True)

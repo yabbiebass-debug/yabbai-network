@@ -37,6 +37,11 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - Fixed pre-existing frontend breakage (webpack-dev-server v5 vs CRA v4 middleware API) in craco.config.js.
 - Tests: 17/17 backend pass; all frontend flows pass (see /app/backend/tests/test_unified_backend.py).
 
+## Phase 2 — Multi-tier routing + Google auth (2026-06-20)
+- **Multi-tier LLM routing** configurable in `/settings/index.html`: NVIDIA NIM (free, OpenAI-compatible `integrate.api.nvidia.com/v1`) → Emergent Claude → YABBAI Local/Ollama. Requests walk enabled tiers in order until one answers (`ai_router.route_complete`). Reorder/toggle in UI; keys stored in Mongo `network_settings` (secrets never echoed). Endpoints: `/api/ai/providers`, `/api/ai/nvidia/models`, `/api/ai/test`. Graceful fallback verified (no NVIDIA key → falls to Claude).
+- **Emergent-managed Google sign-in** gating `/hub` and `/settings` (public `/diagnose` stays open). `/login/index.html` → auth.emergentagent.com → hub exchanges `#session_id` at `POST /api/auth/session` → httpOnly `session_token` cookie (7d). `GET /api/auth/me`, `POST /api/auth/logout`. Mongo `users` + `user_sessions`. Playbook: `/app/auth_testing.md`.
+- Tests: iteration_2 — 12/12 backend pass, frontend auth gate + settings UI pass. Fixed MEDIUM bug: Save button disabled until hydration + backend ignores empty `route_order`.
+
 ## Deferred backlog (next phases)
 - P1: Supabase migrations (001–009) + the 6 data web surfaces (Mission Control /app, Realm OS,
   Agency Floor, Catalog Studio, Client Portal, Vault) wired to Supabase or re-implemented as
