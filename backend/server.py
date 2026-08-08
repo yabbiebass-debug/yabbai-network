@@ -47,10 +47,15 @@ async def _ops_health():
 # ── main gateway app ──────────────────────────────────────────────────────────
 app = FastAPI(title="YABBAI Network Gateway", version="2.0.0")
 
-_ALLOWED = [o for o in [
-    "https://revenue-nexus-2.preview.emergentagent.com",
-    "https://revenue-nexus-2.emergent.host",
-] if o]
+# CORS origins come from env (comma-separated). Wildcard is only allowed WITHOUT
+# credentials; with credentialed cookies we require an explicit origin list.
+_cors_env = os.environ.get("CORS_ORIGINS", "").strip()
+if _cors_env and _cors_env != "*":
+    _ALLOWED = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    _CREDS = True
+else:
+    _ALLOWED = ["*"]
+    _CREDS = False
 
 
 class SecurityHeaders(BaseHTTPMiddleware):
@@ -65,7 +70,7 @@ class SecurityHeaders(BaseHTTPMiddleware):
 
 
 app.add_middleware(SecurityHeaders)
-app.add_middleware(CORSMiddleware, allow_origins=_ALLOWED, allow_credentials=True,
+app.add_middleware(CORSMiddleware, allow_origins=_ALLOWED, allow_credentials=_CREDS,
                    allow_methods=["*"], allow_headers=["*"])
 
 
