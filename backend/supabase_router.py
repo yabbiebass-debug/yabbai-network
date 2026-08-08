@@ -8,6 +8,7 @@ and surfaces get live data through our own /api without wrestling anon-key RLS.
 
 from typing import Optional
 
+import os
 import httpx
 from fastapi import APIRouter, Request, HTTPException, Header
 
@@ -33,8 +34,13 @@ async def _require_user(request: Request, authorization: Optional[str]):
 
 
 async def _creds():
+    """Prefer env-provided Supabase secrets; fall back to Settings-stored values."""
+    env_url = os.environ.get("SUPABASE_PUBLIC_URL")
+    env_key = os.environ.get("SUPABASE_SECRET_KEY")
+    if env_url and env_key:
+        return env_url, env_key
     s = await get_raw_settings()
-    return s.get("supabase_url", ""), s.get("supabase_service_key", "")
+    return s.get("supabase_url", env_url or ""), s.get("supabase_service_key", env_key or "")
 
 
 def _headers(key):
