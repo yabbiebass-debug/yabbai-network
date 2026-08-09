@@ -89,3 +89,7 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - Fixed latent bug in `settings/index.html`: `$` helper was used but never defined (broke Supabase card wiring) — now defined.
 - Preview DB reset for both Directors + removed a duplicate `thomas.basham1` record.
 - PENDING USER ACTIONS: (1) redeploy to push all Phase 6/7 fixes live; (2) run `/sql/yabbai_schema.sql` in Supabase; then main agent wires the 6 live data surfaces.
+
+## Phase 8 — Deploy blocker fix (2026-06-24)
+- **Root cause of failed production deploy:** K8s readiness/liveness probe calls `GET 127.0.0.1:8001/health` directly (no `/api` prefix); app only had `/api/health` → 404 → pod never ready → deploy failed.
+- **Fix:** added bare `@app.get("/health")` in `server.py` returning `{"status":"healthy"}` (200). Verified locally. deployment_agent: deployable, compilation_passed, no blockers; MongoDB Atlas-ready (env-driven). Only warnings = public Supabase anon key hardcoded in static hub HTML (safe, non-blocking).
