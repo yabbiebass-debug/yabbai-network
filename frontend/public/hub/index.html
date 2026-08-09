@@ -152,10 +152,12 @@ const PY = {
 const $ = s => document.querySelector(s);
 const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// A failed query must render as "—", never a confident 0.
+const num = v => (v===null||v===undefined) ? '—' : v;
 
 /* ── state ── */
 const ME  = { role:null, uid:null };
-const NET = { mrr:0, cash:0, leads:0, clients:0, enq:0, diag:0, products:0, approvals:0 };
+const NET = { mrr:0, cash:0, leads:null, clients:0, enq:null, diag:null, products:0, approvals:null };
 const SVC = { revenue:{live:false,ks:false,income:0,pending:0}, ai:{live:false}, goldscout:{live:false}, defi:{live:false}, ops:{live:false} };
 let adminKey = sessionStorage.getItem('yabbai_admin_key') || 'yabbai-director-key';
 let svcTimer  = null;
@@ -190,10 +192,17 @@ async function ensureAuth(){
 
 /* ════════════════════ PYTHON SERVICES ════════════════════ */
 async function checkPythonService(name, url){
-  try{
-    const r = await fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) });
-    return r.ok;
-  } catch{ return false; }
+  // Emergent containers cold-start slowly. Retry 3x with an 8s timeout and
+  // backoff (1.5s, 3s, 4.5s) so a first-request 503 doesn't stick "offline".
+  const backoff = [1500, 3000, 4500];
+  for(let i=0; i<=backoff.length; i++){
+    try{
+      const r = await fetch(`${url}/health`, { signal: AbortSignal.timeout(8000) });
+      if(r.ok) return true;
+    } catch{ /* fall through to retry */ }
+    if(i < backoff.length) await new Promise(res => setTimeout(res, backoff[i]));
+  }
+  return false;
 }
 
 async function loadRevenueMeta(){
@@ -212,14 +221,13 @@ async function loadRevenueMeta(){
 }
 
 async function pollServices(){
-  const checks = await Promise.all([
-    checkPythonService('revenue',   PY.revenue),
-    checkPythonService('ai',        PY.ai),
-    checkPythonService('goldscout', PY.goldscout),
-    checkPythonService('defi',      PY.defi),
-    checkPythonService('ops',       PY.ops),
-  ]);
-  ['revenue','ai','goldscout','defi','ops'].forEach((k,i) => { SVC[k].live = checks[i]; });
+  const names = ['revenue','ai','goldscout','defi','ops'];
+  const urls  = [PY.revenue, PY.ai, PY.goldscout, PY.defi, PY.ops];
+  // Stagger the five probes ~200ms apart so we don't hammer a cold container at once.
+  const checks = await Promise.all(names.map((name,i) =>
+    new Promise(res => setTimeout(async () => res(await checkPythonService(name, urls[i])), i*200))
+  ));
+  names.forEach((k,i) => { SVC[k].live = checks[i]; });
   if(SVC.revenue.live) await loadRevenueMeta();
   renderServices();
   renderStrip();
@@ -231,20 +239,22 @@ async function loadNet(){
   const tryGet = async fn => { try{ return await fn(); } catch{ return null; } };
   const [money, leads, enq, diag, cat, appr] = await Promise.all([
     tryGet(() => supa.from('money_view').select('*').single()),
-    tryGet(() => supa.from('leads').select('*',{count:'exact',head:true}).neq('stage','Dead')),
-    tryGet(() => supa.from('enquiries').select('*',{count:'exact',head:true})),
-    tryGet(() => supa.from('diagnostics').select('*',{count:'exact',head:true})),
+    tryGet(() => supa.from('leads').select('id',{count:'exact'}).limit(1).neq('stage','Dead')),
+    tryGet(() => supa.from('enquiries').select('id',{count:'exact'}).limit(1)),
+    tryGet(() => supa.from('diagnostics').select('id',{count:'exact'}).limit(1)),
     tryGet(() => supa.from('catalog_view').select('*').single()),
-    tryGet(() => supa.from('approvals').select('*',{count:'exact',head:true}).eq('status','pending')),
+    tryGet(() => supa.from('approvals').select('id',{count:'exact'}).limit(1).eq('status','pending')),
   ]);
+  // A failed count query returns null (rendered "—"), never a confident 0.
+  const cnt = r => (r && !r.error && typeof r.count === 'number') ? r.count : null;
   NET.mrr      = money?.data?.mrr || 0;
   NET.cash     = money?.data?.cash_collected || 0;
   NET.clients  = money?.data?.active_clients || 0;
-  NET.leads    = leads?.count || 0;
-  NET.enq      = enq?.count || 0;
-  NET.diag     = diag?.count || 0;
+  NET.leads    = cnt(leads);
+  NET.enq      = cnt(enq);
+  NET.diag     = cnt(diag);
   NET.products = cat?.data?.live || 0;
-  NET.approvals= appr?.count || 0;
+  NET.approvals= cnt(appr);
   renderStrip();
   renderNavChips();
 }
@@ -358,11 +368,11 @@ function renderStrip(){
       <div class="l">Reconciled income</div>
       <span class="badge-real">verified</span>
     </div>
-    <div class="stat"><div class="v p">${NET.leads}</div><div class="l">Open leads</div></div>
-    <div class="stat"><div class="v">${NET.enq}</div><div class="l">Widget enquiries</div></div>
-    <div class="stat"><div class="v">${NET.diag}</div><div class="l">Fix-plans run</div></div>
+    <div class="stat"><div class="v p">${num(NET.leads)}</div><div class="l">Open leads</div></div>
+    <div class="stat"><div class="v">${num(NET.enq)}</div><div class="l">Widget enquiries</div></div>
+    <div class="stat"><div class="v">${num(NET.diag)}</div><div class="l">Fix-plans run</div></div>
     <div class="stat"><div class="v p">${NET.products}</div><div class="l">Products live</div></div>
-    <div class="stat"><div class="v ${(NET.approvals+SVC.revenue.pending)>0?'a':''}">${NET.approvals + SVC.revenue.pending}</div><div class="l">Pending approvals</div></div>`;
+    <div class="stat"><div class="v ${(NET.approvals!==null && (NET.approvals+SVC.revenue.pending)>0)?'a':''}">${NET.approvals===null ? '—' : (NET.approvals + SVC.revenue.pending)}</div><div class="l">Pending approvals</div></div>`;
 }
 
 function renderServices(){
@@ -588,8 +598,8 @@ try {
     .subscribe();
 } catch(e){ /* tables not migrated yet */ }
 
-// Poll Python backends every 60s
-svcTimer = setInterval(pollServices, 60_000);
+// Re-poll Python backends every 30s so a waking container flips its badge without a reload.
+svcTimer = setInterval(pollServices, 30_000);
 </script>
 </body>
 </html>

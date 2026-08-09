@@ -75,3 +75,9 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 ## Key facts
 - Admin key: `yabbai-director-key` (X-Admin-Key header), in backend .env ADMIN_API_KEY.
 - EMERGENT_LLM_KEY in backend .env.
+
+## Phase 6 — Prod fixes (2026-06-24)
+- **2FA lockout hardening** (`auth_router.py` `/2fa/setup` + `2fa/index.html`): QR + manual key now ALWAYS returned/rendered (even when `already_enrolled`), reusing the stored secret — removes the "enrolled but no authenticator → permanent lockout" dead-end. Verified end-to-end: fresh setup returns QR, live TOTP verifies, re-setup still returns QR.
+- **Schema paste blocker fixed** (`/sql/yabbai_schema.sql`): removed the 006 catalog seed INSERT that used literal `PASTE_DIRECTOR_USER_ID` (invalid UUID) which would abort the whole SQL run. Script is now paste-clean; tables 001–009 all create. Catalog seed must be done from the app (needs a real auth.users UUID).
+- **Hub display bugs** (`hub/index.html`): (1) `checkPythonService` now retries 3x, 8s timeout, backoff 1.5/3/4.5s; probes staggered 200ms; re-poll every 30s. (2) `loadNet` count queries switched from HEAD (`head:true`, deterministic 503) to GET (`.select('id',{count:'exact'}).limit(1)`). (3) failed count → null → renders "—", never a confident 0. money_view/catalog_view untouched. yabbai AI tier already uses 60s httpx timeout (no change needed).
+- NOTE: production (revenue-nexus-2.emergent.host) runs a stale build; user must REDEPLOY to pick up all Phase 6 fixes.
