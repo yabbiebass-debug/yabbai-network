@@ -81,3 +81,11 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - **Schema paste blocker fixed** (`/sql/yabbai_schema.sql`): removed the 006 catalog seed INSERT that used literal `PASTE_DIRECTOR_USER_ID` (invalid UUID) which would abort the whole SQL run. Script is now paste-clean; tables 001–009 all create. Catalog seed must be done from the app (needs a real auth.users UUID).
 - **Hub display bugs** (`hub/index.html`): (1) `checkPythonService` now retries 3x, 8s timeout, backoff 1.5/3/4.5s; probes staggered 200ms; re-poll every 30s. (2) `loadNet` count queries switched from HEAD (`head:true`, deterministic 503) to GET (`.select('id',{count:'exact'}).limit(1)`). (3) failed count → null → renders "—", never a confident 0. money_view/catalog_view untouched. yabbai AI tier already uses 60s httpx timeout (no change needed).
 - NOTE: production (revenue-nexus-2.emergent.host) runs a stale build; user must REDEPLOY to pick up all Phase 6 fixes.
+
+## Phase 7 — 2FA reset/recovery + backup codes (2026-06-24)
+- **2FA start-over/recovery** (`auth_router.py`): `POST /2fa/reset` mints a brand-new secret + fresh QR + 10 one-time recovery codes (revokes old, forces re-verify, no access grant). `POST /2fa/recover {code}` = single-use HMAC-peppered (`RECOVERY_CODE_PEPPER` in .env) backup code that satisfies the 2FA gate for a lost device. First enrollment via `/2fa/verify` now also returns 10 codes. All verified via curl: reset rotates secret (old TOTP→401), recover single-use (reuse→401), unauth→401, `/me` leaks nothing.
+- **`/2fa` page** got "↻ start over" + "lost device?" (backup-code) actions.
+- **Backup Codes Panel** in `/settings`: `GET /2fa/recovery-status` (remaining/total) + `POST /2fa/recovery-regenerate` (fresh set, shown once); both require a verified Director (403 if not 2FA-verified, 401 unauth). Card shows "N of 10 left" + Regenerate button.
+- Fixed latent bug in `settings/index.html`: `$` helper was used but never defined (broke Supabase card wiring) — now defined.
+- Preview DB reset for both Directors + removed a duplicate `thomas.basham1` record.
+- PENDING USER ACTIONS: (1) redeploy to push all Phase 6/7 fixes live; (2) run `/sql/yabbai_schema.sql` in Supabase; then main agent wires the 6 live data surfaces.

@@ -87,6 +87,18 @@
     <div class="hint">Supabase → Project Settings → API → <b>service_role</b>. First run <a href="/sql/yabbai_schema.sql" target="_blank">the schema SQL</a> in the SQL Editor, then test — I'll show which tables are live.</div>
   </div>
 
+  <div class="eyebrow">Two-factor — backup codes</div>
+  <div class="card" id="rcCard">
+    <div class="chead"><h3><i>▸</i> Backup recovery codes</h3><span class="keyset" id="rcCount">…</span></div>
+    <div class="hint" style="margin-bottom:10px">One-time codes that get you back in if you ever lose your authenticator device. Each works once. Regenerating replaces the whole set and invalidates the old codes.</div>
+    <div class="row"><button class="btn sm" id="rcRegen" data-testid="recovery-regenerate">Regenerate backup codes</button></div>
+    <div id="rcCodes" style="display:none;margin-top:12px">
+      <p style="color:var(--green);font-weight:700;font-size:11px;margin-bottom:6px">⚠ Save these now — shown once.</p>
+      <div id="rcList" style="font-family:var(--mono,monospace);background:rgba(20,241,149,.06);border:1px solid rgba(20,241,149,.25);border-radius:6px;padding:12px;line-height:2;letter-spacing:1px;color:var(--green);text-align:center;word-break:break-word"></div>
+    </div>
+    <div class="test" id="rcResult"></div>
+  </div>
+
   <div class="eyebrow soon-label">Payments & Wallet — coming next</div>
   <div class="card soon">
     <div class="chead"><h3><i>▸</i> Stripe · PayPal · Phantom</h3><span class="soonbadge">scaffolded</span></div>
@@ -101,6 +113,7 @@
 
 <script>
 const API = window.location.origin;
+const $ = id => document.getElementById(id);
 let S = {};                 // current settings (sanitized)
 let order = [];             // route order
 let loaded = false;         // guards Save until the page has hydrated
@@ -148,6 +161,37 @@ function render(){
   const sb = document.getElementById('save');
   if(sb) sb.disabled = false;
   renderSupabase();
+  loadRecovery();
+}
+
+async function loadRecovery(){
+  const badge = $('rcCount');
+  try{
+    const r = await fetch(API+'/api/auth/2fa/recovery-status',{credentials:'include'});
+    if(!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if(badge){
+      const low = d.remaining <= 2;
+      badge.textContent = d.remaining + ' of ' + d.total + ' left';
+      badge.className = 'keyset ' + (low ? '' : 'yes');
+    }
+  }catch(e){ if(badge){ badge.textContent = 'unavailable'; badge.className='keyset'; } }
+  const btn = $('rcRegen');
+  if(btn) btn.onclick = regenRecovery;
+}
+
+async function regenRecovery(){
+  if(!confirm('Regenerate backup codes? Your current codes will stop working immediately.')) return;
+  const res = $('rcResult'); res.className='test'; res.textContent='Generating…';
+  try{
+    const r = await fetch(API+'/api/auth/2fa/recovery-regenerate',{method:'POST',credentials:'include'});
+    if(!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    $('rcList').textContent = (d.recovery_codes||[]).join('     ');
+    $('rcCodes').style.display='block';
+    res.className='test ok'; res.textContent='✓ New codes generated — save them now.';
+    loadRecovery();
+  }catch(e){ res.className='test err'; res.textContent='✗ Could not regenerate ('+e+')'; }
 }
 
 function renderSupabase(){

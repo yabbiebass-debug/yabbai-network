@@ -251,6 +251,36 @@ async def twofa_recover(body: CodeBody, request: Request,
     return {"ok": True, "mfa_verified": True}
 
 
+async def _require_verified(request, authorization):
+    session, user = await _session_and_user(request, authorization)
+    if not user:
+        raise HTTPException(401, "Not authenticated")
+    if not session.get("mfa_verified"):
+        raise HTTPException(403, "2FA required")
+    return session, user
+
+
+@router.get("/2fa/recovery-status")
+async def recovery_status(request: Request, authorization: Optional[str] = Header(None)):
+    """How many one-time backup codes remain (verified Director only)."""
+    _, user = await _require_verified(request, authorization)
+    codes = user.get("recovery_codes") or []
+    remaining = sum(1 for c in codes if not c.get("used_at"))
+    return {"ok": True, "total": len(codes), "remaining": remaining,
+            "used": len(codes) - remaining}
+
+
+@router.post("/2fa/recovery-regenerate")
+async def recovery_regenerate(request: Request, authorization: Optional[str] = Header(None)):
+    """Replace the entire backup-code set with a fresh batch, shown once."""
+    _, user = await _require_verified(request, authorization)
+    plain_codes, stored_codes = _new_recovery_codes()
+    await db.users.update_one({"user_id": user["user_id"]},
+                              {"$set": {"recovery_codes": stored_codes}})
+    return {"ok": True, "recovery_codes": plain_codes}
+
+
+
 @router.post("/logout")
 async def logout(request: Request, response: Response, authorization: Optional[str] = Header(None)):
     token = await _resolve_token(request, authorization)
