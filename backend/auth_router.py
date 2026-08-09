@@ -10,6 +10,9 @@ import os
 import uuid
 import io
 import base64
+import hmac
+import hashlib
+import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 
@@ -30,10 +33,26 @@ COOKIE_NAME = "session_token"
 SESSION_DAYS = 7
 ALLOWLIST = {e.strip().lower() for e in os.environ.get("AUTH_ALLOWLIST", "").split(",") if e.strip()}
 ISSUER = "YABBAI.NETWORK"
+RECOVERY_CODE_COUNT = 10
 
 _fernet = Fernet(os.environ["APP_ENC_KEY"].encode())
+_pepper = os.environ["RECOVERY_CODE_PEPPER"].encode()
 def _enc(s: str) -> str: return _fernet.encrypt(s.encode()).decode()
 def _dec(s: str) -> str: return _fernet.decrypt(s.encode()).decode()
+
+
+def _code_hash(code: str) -> str:
+    normalized = "".join(code.split()).upper().encode()
+    return hmac.new(_pepper, normalized, hashlib.sha256).hexdigest()
+
+
+def _new_recovery_codes():
+    """Returns (plaintext_list_shown_once, stored_hash_docs)."""
+    plain = ["-".join([base64.b32encode(secrets.token_bytes(3)).decode().rstrip("=")[:4]
+                       for _ in range(2)]) for _ in range(RECOVERY_CODE_COUNT)]
+    stored = [{"hash": _code_hash(c), "used_at": None,
+               "created_at": datetime.now(timezone.utc).isoformat()} for c in plain]
+    return plain, stored
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -64,7 +83,7 @@ async def _session_and_user(request: Request, authorization: Optional[str]) -> T
 
 
 def _public_user(user: dict) -> dict:
-    return {k: v for k, v in user.items() if k not in ("totp_secret_enc",)}
+    return {k: v for k, v in user.items() if k not in ("totp_secret_enc", "recovery_codes")}
 
 
 async def require_director(request: Request, authorization: Optional[str] = Header(None)):
@@ -176,8 +195,57 @@ async def twofa_verify(body: CodeBody, request: Request, response: Response,
     secret = _dec(enc)
     if not pyotp.TOTP(secret).verify(body.code.strip(), valid_window=1):
         raise HTTPException(401, "Invalid or expired code")
-    if not user.get("totp_enabled"):
-        await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"totp_enabled": True}})
+    first_enrollment = not user.get("totp_enabled")
+    new_codes = None
+    if first_enrollment:
+        set_fields = {"totp_enabled": True}
+        if not user.get("recovery_codes"):
+            new_codes, stored = _new_recovery_codes()
+            set_fields["recovery_codes"] = stored
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": set_fields})
+    await db.user_sessions.update_one({"session_token": session["session_token"]},
+                                      {"$set": {"mfa_verified": True}})
+    return {"ok": True, "mfa_verified": True, "recovery_codes": new_codes}
+
+
+@router.post("/2fa/reset")
+async def twofa_reset(request: Request, authorization: Optional[str] = Header(None)):
+    """Start over: mint a BRAND NEW secret + fresh one-time recovery codes.
+    Requires a valid (Google-authed, allowlisted) session; does NOT grant access —
+    the Director must still scan the new QR and verify a live code."""
+    session, user = await _session_and_user(request, authorization)
+    if not user:
+        raise HTTPException(401, "Not authenticated")
+    secret = pyotp.random_base32()
+    plain_codes, stored_codes = _new_recovery_codes()
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"totp_secret_enc": _enc(secret), "totp_enabled": False,
+                  "recovery_codes": stored_codes,
+                  "mfa_changed_at": datetime.now(timezone.utc).isoformat()}})
+    # Any old verified sessions for this user must re-verify against the new secret.
+    await db.user_sessions.update_many({"user_id": user["user_id"]},
+                                       {"$set": {"mfa_verified": False}})
+    otpauth = pyotp.totp.TOTP(secret).provisioning_uri(name=user["email"], issuer_name=ISSUER)
+    return {"ok": True, "otpauth_url": otpauth, "secret": secret,
+            "qr_data_url": _qr_data_url(otpauth), "recovery_codes": plain_codes}
+
+
+@router.post("/2fa/recover")
+async def twofa_recover(body: CodeBody, request: Request,
+                        authorization: Optional[str] = Header(None)):
+    """Single-use backup recovery code for a lost authenticator device.
+    Atomically consumes one unused code, then verifies the session's 2FA gate."""
+    session, user = await _session_and_user(request, authorization)
+    if not user:
+        raise HTTPException(401, "Not authenticated")
+    h = _code_hash(body.code)
+    res = await db.users.update_one(
+        {"user_id": user["user_id"],
+         "recovery_codes": {"$elemMatch": {"hash": h, "used_at": None}}},
+        {"$set": {"recovery_codes.$.used_at": datetime.now(timezone.utc).isoformat()}})
+    if res.modified_count != 1:
+        raise HTTPException(401, "Invalid or already-used recovery code")
     await db.user_sessions.update_one({"session_token": session["session_token"]},
                                       {"$set": {"mfa_verified": True}})
     return {"ok": True, "mfa_verified": True}

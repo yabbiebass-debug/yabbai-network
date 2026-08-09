@@ -43,10 +43,25 @@
       <p style="margin-bottom:6px">Scan with Google Authenticator, then enter the 6-digit code. Manual key:</p>
       <div class="secret" id="secret"></div>
     </div>
-    <input class="code" id="code" inputmode="numeric" maxlength="6" placeholder="000000" data-testid="totp-code" autocomplete="one-time-code">
-    <button class="btn" id="verify" data-testid="totp-verify">Verify &amp; enter</button>
+    <div id="codesbox" style="display:none;text-align:left;margin-bottom:16px">
+      <p style="color:var(--green);font-weight:700;margin-bottom:6px">⚠ Save these backup codes now — shown once.</p>
+      <p style="font-size:10px;margin-bottom:8px">Each code works once if you ever lose your authenticator. Store them somewhere safe.</p>
+      <div class="secret" id="codeslist" style="white-space:pre-wrap;line-height:2;text-align:center"></div>
+    </div>
+    <div id="totpblock">
+      <input class="code" id="code" inputmode="numeric" maxlength="6" placeholder="000000" data-testid="totp-code" autocomplete="one-time-code">
+      <button class="btn" id="verify" data-testid="totp-verify">Verify &amp; enter</button>
+    </div>
+    <div id="recoverblock" style="display:none">
+      <input class="code" id="rcode" style="letter-spacing:2px;font-size:15px" placeholder="XXXX-XXXX" data-testid="recovery-code" autocomplete="off">
+      <button class="btn" id="recover" data-testid="recovery-verify">Use backup code</button>
+    </div>
     <div class="status" id="status"></div>
-    <div class="link"><a href="#" onclick="logout();return false;">sign out</a></div>
+    <div class="link">
+      <a href="#" onclick="startOver();return false;" data-testid="start-over" style="color:var(--purple)">↻ start over — new QR + backup codes</a>
+      &nbsp;·&nbsp; <a href="#" onclick="toggleRecover();return false;" data-testid="toggle-recover" id="reclink">lost device?</a>
+      &nbsp;·&nbsp; <a href="#" onclick="logout();return false;">sign out</a>
+    </div>
   </div>
 <script>
 const ORIGIN = window.location.origin;
@@ -90,11 +105,68 @@ async function verify(){
   $('status').className='status'; $('status').textContent='Verifying…';
   const r = await fetch(ORIGIN+'/api/auth/2fa/verify',{method:'POST',credentials:'include',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
-  if(r.ok){ $('status').className='status ok'; $('status').textContent='✓ Verified — entering the network…'; setTimeout(()=>window.location.replace('/hub/index.html'),700); }
+  if(r.ok){
+    const d = await r.json().catch(()=>({}));
+    if(d.recovery_codes && d.recovery_codes.length){
+      // First enrollment produced backup codes — show them before entering.
+      showCodes(d.recovery_codes, 'Enrolled ✓ Save these backup codes, then continue.');
+      $('verify').textContent='Continue to network';
+      $('verify').onclick=()=>window.location.replace('/hub/index.html');
+      return;
+    }
+    $('status').className='status ok'; $('status').textContent='✓ Verified — entering the network…';
+    setTimeout(()=>window.location.replace('/hub/index.html'),700);
+  }
   else { const d=await r.json().catch(()=>({})); $('status').className='status err'; $('status').textContent='✗ '+(d.detail||'Invalid code'); }
 }
+
+function showCodes(codes, msg){
+  $('codeslist').textContent = codes.join('   ');
+  $('codesbox').style.display='block';
+  if(msg){ $('status').className='status ok'; $('status').textContent=msg; }
+}
+
+window.startOver = async function(){
+  $('status').className='status'; $('status').textContent='Generating a fresh QR + backup codes…';
+  const r = await fetch(ORIGIN+'/api/auth/2fa/reset',{method:'POST',credentials:'include'});
+  if(!r.ok){ $('status').className='status err'; $('status').textContent='Could not reset — refresh and try again.'; return; }
+  const s = await r.json();
+  $('title').innerHTML = 'Fresh <em>Google Authenticator</em>';
+  $('lead').textContent = 'Delete any old YABBAI entry in your authenticator, scan this new QR, then enter the code.';
+  $('enroll').style.display='block';
+  $('secret').textContent = s.secret;
+  if(s.qr_data_url){ $('qrimg').src = s.qr_data_url; }
+  showCodes(s.recovery_codes, 'New QR ready. Save the backup codes below, then verify.');
+  showTotp();
+  $('code').value=''; $('code').focus();
+};
+
+window.toggleRecover = function(){
+  const showing = $('recoverblock').style.display==='block';
+  if(showing){ showTotp(); } else {
+    $('totpblock').style.display='none'; $('recoverblock').style.display='block';
+    $('reclink').textContent='use authenticator'; $('rcode').focus();
+  }
+};
+function showTotp(){
+  $('totpblock').style.display='block'; $('recoverblock').style.display='none';
+  $('reclink').textContent='lost device?';
+}
+
+async function recover(){
+  const code = $('rcode').value.trim();
+  if(code.length<4){ $('status').className='status err'; $('status').textContent='Enter a backup code.'; return; }
+  $('status').className='status'; $('status').textContent='Checking backup code…';
+  const r = await fetch(ORIGIN+'/api/auth/2fa/recover',{method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+  if(r.ok){ $('status').className='status ok'; $('status').textContent='✓ Recovered — entering the network…'; setTimeout(()=>window.location.replace('/hub/index.html'),700); }
+  else { const d=await r.json().catch(()=>({})); $('status').className='status err'; $('status').textContent='✗ '+(d.detail||'Invalid backup code'); }
+}
+
 $('verify').onclick=verify;
+$('recover').onclick=recover;
 $('code').addEventListener('keydown',e=>{ if(e.key==='Enter') verify(); });
+$('rcode').addEventListener('keydown',e=>{ if(e.key==='Enter') recover(); });
 init();
 </script>
 </body>
