@@ -80,6 +80,13 @@ async def health():
             "ts": datetime.now(timezone.utc).isoformat()}
 
 
+# Bare /health (no /api prefix) — the Kubernetes readiness/liveness probe hits
+# 127.0.0.1:8001/health directly. Without this the pod never passes health check.
+@app.get("/health")
+async def root_health():
+    return {"status": "healthy"}
+
+
 @app.get("/api/network/status")
 async def network_status():
     """In-process services are always up; report them for the hub strip."""
