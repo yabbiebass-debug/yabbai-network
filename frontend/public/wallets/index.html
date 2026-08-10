@@ -149,7 +149,7 @@ async function loadWallets(){
   if(!d.wallets || !d.wallets.length){ host.innerHTML='<div class="empty">No wallets connected yet.</div>'; return; }
   host.innerHTML = d.wallets.map(w=>{
     const c = CHAINS[w.chain]||{};
-    return `<div class="card wal" data-chain="${w.chain}" data-addr="${w.address}">
+    return `<div class="card wal" data-chain="${w.chain}" data-addr="${w.address}" data-id="${w.wallet_id}">
       <div class="row" style="justify-content:space-between">
         <span class="chip ${c.kind||''}">${(c.label||w.chain)}</span>
         <span class="chip">${w.provider}</span>
@@ -159,9 +159,17 @@ async function loadWallets(){
       <div class="tokens" data-tokens style="margin-top:8px;font-size:11px"></div>
       <div class="row" style="margin-top:8px">
         <a class="btn sm" href="${(c.explorer||'#')}/address/${w.address}" target="_blank">Explorer ↗</a>
+        <button class="btn sm" data-remove="${w.wallet_id}" data-testid="remove-wallet" style="border-color:var(--red);color:var(--red)">Remove</button>
       </div>
     </div>`;
   }).join('');
+  host.querySelectorAll('[data-remove]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Remove this watch-only wallet from the list? (This only stops YABBAI displaying it — it never had access to any funds.)')) return;
+      await fetch(ORIGIN+'/api/wallet/'+b.dataset.remove,{method:'DELETE',credentials:'include'}).catch(()=>{});
+      loadWallets();
+    };
+  });
   refreshBalances();
 }
 

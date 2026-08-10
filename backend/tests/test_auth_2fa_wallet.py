@@ -23,8 +23,9 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
 TIMEOUT = 60
 
-TEST_EVM_ADDR = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
-TEST_SOL_ADDR = "So11111111111111111111111111111111111111112"
+# No real person's wallet baked in — burn address by default; override via env.
+TEST_EVM_ADDR = os.environ.get("TEST_EVM_ADDR", "0x000000000000000000000000000000000000dEaD")
+TEST_SOL_ADDR = "So11111111111111111111111111111111111111112"  # wrapped-SOL mint (public, valid base58)
 
 
 # ── Seed helpers ─────────────────────────────────────────────────────────────
