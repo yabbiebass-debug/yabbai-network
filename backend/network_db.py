@@ -40,6 +40,15 @@ async def get_raw_settings() -> dict:
     """Full document including secrets — internal use only (routing)."""
     doc = await _db.settings.find_one({"_id": SETTINGS_ID}) or {}
     merged = {**DEFAULTS, **{k: v for k, v in doc.items() if k != "_id"}}
+    # Env-configured YABBAI local/Ollama tier takes precedence (carries to prod deploys).
+    env_map = {
+        "yabbai_url": os.environ.get("YABBAI_TIER_URL"),
+        "yabbai_api_key": os.environ.get("YABBAI_TIER_KEY"),
+        "yabbai_model": os.environ.get("YABBAI_TIER_MODEL"),
+    }
+    for k, v in env_map.items():
+        if v:
+            merged[k] = v
     return merged
 
 

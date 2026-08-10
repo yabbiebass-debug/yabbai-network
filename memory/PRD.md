@@ -93,3 +93,9 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 ## Phase 8 — Deploy blocker fix (2026-06-24)
 - **Root cause of failed production deploy:** K8s readiness/liveness probe calls `GET 127.0.0.1:8001/health` directly (no `/api` prefix); app only had `/api/health` → 404 → pod never ready → deploy failed.
 - **Fix:** added bare `@app.get("/health")` in `server.py` returning `{"status":"healthy"}` (200). Verified locally. deployment_agent: deployable, compilation_passed, no blockers; MongoDB Atlas-ready (env-driven). Only warnings = public Supabase anon key hardcoded in static hub HTML (safe, non-blocking).
+
+## Phase 9 — Wallet demo-data cleanup + YABBAI local tier (2026-06-24)
+- **Removed vitalik.eth demo wallet**: deleted stale watch-only DB record (was under yabbiebass@gmail.com, made vitalik.eth render as a "connected MetaMask wallet w/ balances"); removed the hardcoded `0xd8dA6B…A96045` literal from both test files (now env-overridable `TEST_EVM_ADDR`, default burn address); relaxed balance assertion. Grep confirms zero occurrences repo-wide. Token-contract + SPL-mint addresses in wallet_router.py are legitimate and kept.
+- Added a **Remove** button to each wallet card (`wallets/index.html`) so users can clear wrongly-listed watch-only wallets (needed for prod where agent can't touch the DB).
+- **YABBAI local/Ollama tier via env**: added `YABBAI_TIER_URL`/`YABBAI_TIER_KEY`/`YABBAI_TIER_MODEL` to `backend/.env`; `network_db.get_raw_settings()` overlays them onto yabbai tier fields (env precedence, carries to prod). Verified: tunnel POST /api/chat → 200 `{"content":"OK","model":"llama3.1:8b"}`; router `_yabbai_complete` returns live completions. Tier is last in route_order (emergent→nvidia→yabbai).
+- All Phase 9 changes require redeploy for prod.
