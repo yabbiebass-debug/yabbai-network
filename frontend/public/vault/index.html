@@ -108,12 +108,12 @@
 <input class="hp" id="hp" tabindex="-1" autocomplete="off">
 
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/shared/realm-client.js';
 
 /* ============ CONFIG ============ */
-const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
-const FN = SUPABASE_URL.startsWith('PASTE') ? '' : SUPABASE_URL + '/functions/v1/vault-config';
+const SUPABASE_URL = window.location.origin;
+const SUPABASE_ANON_KEY = 'realm';
+const FN = window.location.origin + '/api/realm/public/vault-config';
 
 const $ = s => document.querySelector(s);
 const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');

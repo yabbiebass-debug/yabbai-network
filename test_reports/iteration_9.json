@@ -1,0 +1,29 @@
+{
+  "summary": "RETEST of iteration_8. Both fixes verified: (CRITICAL) realm-client.js auth.getSession() now guards on me.user_id and returns session.user = {...me, id: me.user_id} — with the seeded qa_director session cookie all six surfaces (/app /os /floor /studio /portal /vault) render their live shells, not the sign-in gate. (HIGH) With NO session, each of /app /os /floor /studio /portal REDIRECTS to /login/index.html?next=<original_path> — the dead 'Send magic link' form is no longer reachable. End-to-end Mission Control flow works: add lead → RUN CYCLE hits /api/realm/fn/cycle-runner (real Emergent Claude LLM, ~5-10s) → cycles counter increments → for a Hot-scored lead a PENDING outreach approval is queued (never auto-sent) → Approve button clears it. Portal insert(orders) sends director='PASTE_DIRECTOR_AUTH_USER_ID' but backend realm_router.insert() forces doc['director']=uid so the PASTE_ value is dropped (confirmed at /app/backend/realm_router.py:361-362). OS uses same-origin /app/index.html + /portal/index.html nav and widget SRC = origin+'/widget/yabbai-connect.js' (no PASTE_). Floor renders and shows Director. Vault renders 'being stocked' empty state, no config gate. Hub strip counters read /api/realm/summary and match Mission Control (2 open leads, 0 pending approvals after approving). Admin key inputs on /hub and /revsys start empty.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_8.json"],
+  "action_items": [
+    "OPTIONAL cleanup: the unreachable 'Send magic link' markup + signInWithOtp handler still lives after the location.replace + `return await new Promise(()=>{})` in each of /app /os /floor /studio /portal ensureAuth(). Not reachable, but dead code. Consider deleting to keep the surfaces honest.",
+    "OPTIONAL: portal/index.html still hard-codes DIRECTOR_USER_ID='PASTE_DIRECTOR_AUTH_USER_ID' in the client insert payload. Server correctly overrides it, but the constant is misleading — recommend dropping it from the client since realm_router.insert() forces director from session.",
+    "OPTIONAL: portal payment links + BOOK_CALL_URL remain PASTE_ placeholders (already acknowledged out-of-scope for this iteration — no live Stripe payments)."
+  ],
+  "critical_code_review_comments": [
+    "realm-client.js auth.getSession fix is correct: guards on me.user_id and returns session.user = {...me, id: me.user_id} — Agency Floor (which reads session.user.id) now works via the aliased id.",
+    "ensureAuth() in the five surfaces does location.replace(...) then `return await new Promise(()=>{})` to freeze the page during redirect — clean pattern.",
+    "realm_router.insert() line 361-362 forces director=uid on orders regardless of client-provided value — the PASTE_ leak is contained server-side.",
+    "cycle-runner correctly gates outreach approvals to Hot-scored leads only (never auto-send). Cold/Warm leads increment 'qualified' but not 'drafted'. This matches the spec 'never an auto-send'."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (skipped per request; live curl of /api/realm/insert/select/fn/cycle-runner/summary all 200)", "frontend": "100% of retest scope" },
+  "test_credentials": "Seeded users{user_id:'qa_director', email:'yabbiebass@gmail.com', role:'director', totp_enabled:true} + user_sessions{session_token:'qa_realm_sess', mfa_verified:true, expires_at:now+1d}. Cookie session_token=qa_realm_sess (secure, sameSite=None, path=/) attached via Playwright context.add_cookies. /api/auth/me returned 200 with mfa_verified=true. Cleaned up post-run.",
+  "seed_data_creation": "qa_director + qa_realm_sess session; two leads (TEST_QA_Biz_Retest9 via UI, TEST_HotDentalClinic via API for a Hot-scored path); cleaned up (users, user_sessions, and owner=qa_director rows across leads/approvals/cycles/events/clients/orders/money_ledger).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Phase-10 realm surfaces are live and integrated. If regressing, seed the same qa_director + qa_realm_sess and hit any of /app /os /floor /studio /portal /vault with the cookie — you should see live shells. Backend data plane is unit-tested at /app/backend/tests/test_realm.py (53 passing per E1) and live-verified in this iteration.",
+  "rca of the issue": "Iteration_8 CRITICAL was a shape-mismatch: realm-client.js was written to Supabase shape ({user:{...}}) but /api/auth/me returns FastAPI top-level (user_id/email/mfa_verified). The one-line fix now reads me.user_id and returns session.user={...me, id:me.user_id}. Iteration_8 HIGH was a dead in-page magic-link gate on the six surfaces even though this deployment has no magic-link auth (Google + TOTP only) — now replaced with a hard redirect to /login/index.html?next=... The MEDIUM PASTE_ director id in portal is contained because realm_router forces director=uid server-side."
+}

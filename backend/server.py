@@ -32,6 +32,7 @@ from goldscout_router import router as goldscout_router
 from auth_router import router as auth_router
 from wallet_router import router as wallet_router
 from supabase_router import router as supabase_router
+from realm_router import router as realm_router
 
 # health aliases so every service answers at <prefix>/health (the hub polls this)
 @defi_app.get("/health")
@@ -96,6 +97,7 @@ async def network_status():
         "goldscout": {"live": True, "prefix": "/api/goldscout"},
         "defi":      {"live": True, "prefix": "/api/defi"},
         "ops":       {"live": True, "prefix": "/api/ops"},
+        "realm":     {"live": True, "prefix": "/api/realm"},
     }
     return {"gateway": "healthy", "version": "2.0.0",
             "services": services, "all_live": all(s["live"] for s in services.values()),
@@ -123,3 +125,4 @@ app.include_router(goldscout_router)
 app.include_router(auth_router)
 app.include_router(wallet_router)
 app.include_router(supabase_router)
+app.include_router(realm_router)

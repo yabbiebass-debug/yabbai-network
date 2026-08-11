@@ -112,13 +112,13 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/shared/realm-client.js';
 
 /* ============================================================
    CONFIG — same Supabase project as Mission Control.
    ============================================================ */
-const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+const SUPABASE_URL = window.location.origin;
+const SUPABASE_ANON_KEY = 'realm';
 const DIRECTOR_USER_ID = 'PASTE_DIRECTOR_AUTH_USER_ID';      // you — every order routes to your realm
 const PAYLINKS = {                                            // Stripe Payment Links (Products → share link)
   'Starter':  'PASTE_STARTER_PAYMENT_LINK',
@@ -144,6 +144,9 @@ const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function ensureAuth(){
   const { data:{ session } } = await supa.auth.getSession();
   if (session) return session;
+  window.location.replace('/login/index.html?next=' + encodeURIComponent(location.pathname));
+  return await new Promise(()=>{});
+  /* eslint-disable no-unreachable */
   document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
     <h1>YABBAI <b style="color:var(--purple)">//</b> REALM</h1>
     <p>Sign in to order a build, track progress, and see exactly what your system earns you. Magic link — no password.</p>

@@ -159,7 +159,7 @@ const num = v => (v===null||v===undefined) ? '—' : v;
 const ME  = { role:null, uid:null };
 const NET = { mrr:0, cash:0, leads:null, clients:0, enq:null, diag:null, products:0, approvals:null };
 const SVC = { revenue:{live:false,ks:false,income:0,pending:0}, ai:{live:false}, goldscout:{live:false}, defi:{live:false}, ops:{live:false} };
-let adminKey = sessionStorage.getItem('yabbai_admin_key') || 'yabbai-director-key';
+let adminKey = sessionStorage.getItem('yabbai_admin_key') || '';
 let svcTimer  = null;
 
 /* ── guard ── */
@@ -234,27 +234,28 @@ async function pollServices(){
   renderNavChips();
 }
 
-/* ══════════════════════ SUPABASE DATA ═══════════════════ */
+/* ══════════════════════ NETWORK DATA ═══════════════════ */
+/* Reads /api/realm/summary — the SAME store Mission Control, Realm OS, the Floor,
+   the Studio and the Vault write to. (The Supabase client above stays configured
+   for when the Postgres schema goes live, but the strip must never read a
+   different database than the surfaces write.) */
 async function loadNet(){
-  const tryGet = async fn => { try{ return await fn(); } catch{ return null; } };
-  const [money, leads, enq, diag, cat, appr] = await Promise.all([
-    tryGet(() => supa.from('money_view').select('*').single()),
-    tryGet(() => supa.from('leads').select('id',{count:'exact'}).limit(1).neq('stage','Dead')),
-    tryGet(() => supa.from('enquiries').select('id',{count:'exact'}).limit(1)),
-    tryGet(() => supa.from('diagnostics').select('id',{count:'exact'}).limit(1)),
-    tryGet(() => supa.from('catalog_view').select('*').single()),
-    tryGet(() => supa.from('approvals').select('id',{count:'exact'}).limit(1).eq('status','pending')),
-  ]);
-  // A failed count query returns null (rendered "—"), never a confident 0.
-  const cnt = r => (r && !r.error && typeof r.count === 'number') ? r.count : null;
-  NET.mrr      = money?.data?.mrr || 0;
-  NET.cash     = money?.data?.cash_collected || 0;
-  NET.clients  = money?.data?.active_clients || 0;
-  NET.leads    = cnt(leads);
-  NET.enq      = cnt(enq);
-  NET.diag     = cnt(diag);
-  NET.products = cat?.data?.live || 0;
-  NET.approvals= cnt(appr);
+  let s = null;
+  try{
+    const r = await fetch(window.location.origin + '/api/realm/summary',
+                          { credentials:'include' });
+    if (r.ok) s = await r.json();
+  }catch{ /* backend unreachable → nulls below */ }
+  // A failed read renders "—", never a confident 0.
+  const n = v => (typeof v === 'number') ? v : null;
+  NET.mrr      = s?.money?.mrr ?? 0;
+  NET.cash     = s?.money?.cash_collected ?? 0;
+  NET.clients  = s?.money?.active_clients ?? 0;
+  NET.leads    = n(s?.strip?.leads);
+  NET.enq      = n(s?.strip?.enquiries);
+  NET.diag     = n(s?.strip?.diagnostics);
+  NET.products = s?.strip?.products_live ?? 0;
+  NET.approvals= n(s?.strip?.approvals);
   renderStrip();
   renderNavChips();
 }
@@ -590,16 +591,10 @@ ME.name  = user.name;
 shell();
 await Promise.all([ loadNet(), pollServices() ]);
 
-// Realtime subscriptions (no-op until Supabase tables/migrations are live)
-try {
-  supa.channel('hub')
-    .on('postgres_changes',{event:'*',schema:'public',table:'approvals'},()=>loadNet())
-    .on('postgres_changes',{event:'*',schema:'public',table:'leads'},()=>loadNet())
-    .subscribe();
-} catch(e){ /* tables not migrated yet */ }
-
-// Re-poll Python backends every 30s so a waking container flips its badge without a reload.
-svcTimer = setInterval(pollServices, 30_000);
+// The strip refreshes on the same 30s cadence as the service badges. (Supabase
+// realtime only fires once the Postgres schema is live AND surfaces write there —
+// today the realm store is the truth, and it has no push channel, so poll honestly.)
+svcTimer = setInterval(() => { pollServices(); loadNet(); }, 30_000);
 </script>
 </body>
 </html>

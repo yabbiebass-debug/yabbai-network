@@ -81,15 +81,15 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/shared/realm-client.js';
 
 /* ================= CONFIG ================= */
-const SUPABASE_URL      = 'PASTE_YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
-const MISSION_CONTROL_URL = 'PASTE_MISSION_CONTROL_URL';   // app/index.html deploy
-const PORTAL_URL          = 'PASTE_REALM_PORTAL_URL';      // portal/index.html deploy
-const WIDGET_SRC_URL      = 'PASTE_WIDGET_JS_URL';         // hosted yabbai-connect.js
-const INTAKE_ENDPOINT     = SUPABASE_URL.startsWith('PASTE') ? '' : SUPABASE_URL + '/functions/v1/realm-intake';
+const SUPABASE_URL      = window.location.origin;
+const SUPABASE_ANON_KEY = 'realm';
+const MISSION_CONTROL_URL = '/app/index.html';
+const PORTAL_URL          = '/portal/index.html';
+const WIDGET_SRC_URL      = window.location.origin + '/widget/yabbai-connect.js';
+const INTAKE_ENDPOINT     = window.location.origin + '/api/realm/public/intake';
 
 const $ = s => document.querySelector(s);
 const AUD = n => '$' + Number(n||0).toLocaleString('en-AU');
@@ -107,6 +107,9 @@ const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function ensureAuth(){
   const { data:{ session } } = await supa.auth.getSession();
   if (session) return session;
+  window.location.replace('/login/index.html?next=' + encodeURIComponent(location.pathname));
+  return await new Promise(()=>{});
+  /* eslint-disable no-unreachable */
   document.getElementById('app').innerHTML = `<div class="gatewrap"><div class="gate">
     <h1>YABBAI <b style="color:var(--purple)">//</b> REALM OS</h1>
     <p>Director sign-in. This shell shows the whole realm breathing — and forges the widgets your clients embed.</p>

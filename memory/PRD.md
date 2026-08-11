@@ -99,3 +99,15 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - Added a **Remove** button to each wallet card (`wallets/index.html`) so users can clear wrongly-listed watch-only wallets (needed for prod where agent can't touch the DB).
 - **YABBAI local/Ollama tier via env**: added `YABBAI_TIER_URL`/`YABBAI_TIER_KEY`/`YABBAI_TIER_MODEL` to `backend/.env`; `network_db.get_raw_settings()` overlays them onto yabbai tier fields (env precedence, carries to prod). Verified: tunnel POST /api/chat → 200 `{"content":"OK","model":"llama3.1:8b"}`; router `_yabbai_complete` returns live completions. Tier is last in route_order (emergent→nvidia→yabbai).
 - All Phase 9 changes require redeploy for prod.
+
+## Phase 10 — Realm data plane (agency surfaces on Mongo) (2026-06-24)
+- New `backend/realm_router.py` (~900 lines) at `/api/realm`: owner-scoped select/insert(rows)/update, 12 RPCs, 4 live views, cycle-runner + AI fns, public intake/vault-config. Registered in server.py. Safety invariants enforced (money=reconciled only, catalog-price lock, no-air gate, approval-gated actions, owner scoping).
+- New `frontend/public/shared/realm-client.js` — Supabase-shaped shim → /api/realm. Six surfaces (app/os/floor/studio/portal/vault) migrated off unbuilt Supabase.
+- Fixed integration bugs during merge: (a) `route_complete` returns a dict but realm_router treated it as string → added `_ai()` coercion helper; (b) shim `getSession()` read `me.user` but /api/auth/me is top-level → guard on `me.user_id`, alias `id`; (c) 6 surfaces showed a dead magic-link gate on unauth → now redirect to /login. Removed default admin key from hub/revsys. os nav → same-origin.
+- Verified: 53/53 test_realm.py + testing_agent iteration_9 ALL GREEN (surfaces render live, unauth redirects, cycle→approval flow, hub strip reads /api/realm/summary).
+
+## Phase 11 — GoldScout real on-chain scanner (2026-06-24)
+- Applied external Phase 11 (backend-only): `goldscout_router.py` rewritten + new `goldscout/core/{market,safety,store}.py` + `scout.py` async. Real data: DexScreener (live pairs, no key), Solana RPC mint/freeze authority + GoPlus honeypot flags, durable Mongo store (goldscout_findings/scans/watchlist, owner-scoped). Endpoints: /market/scan, /token/safety, /indexes, /scans, /watch, /opportunities.
+- Fixed a merge bug: `/opportunities` called removed `get_findings()` → 500; repointed to `store.load_findings()` (owner-scoped, auth-gated).
+- Verified: 24/24 test_goldscout_real.py pass; LIVE smoke on preview pod — DexScreener returned 25 real pairs w/ liquidity/volume, Solana RPC + GoPlus both `ok` (correctly flags USDC's live mint/freeze authority), persistence + indexes work, /opportunities 200 authed / 401 unauth. Testing agent NOT run (per user runbook, to save credits).
+- Honest framing preserved: unreachable source = `unknown` not safe; LOW = "no hard flags" not "safe"; research leads not buy signals; NO trading logic. Requires redeploy for prod; run /api/goldscout/indexes once post-deploy.

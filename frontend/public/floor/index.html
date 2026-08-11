@@ -72,10 +72,10 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '/shared/realm-client.js';
 
-const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY';
+const SUPABASE_URL = window.location.origin;
+const SUPABASE_ANON_KEY = 'realm';
 const PACKAGES={Starter:1500,Growth:4000,'Full Ops':8000}, TIERS={Maintain:500,Optimize:1500,Scale:3500};
 
 const $=s=>document.querySelector(s);
@@ -94,6 +94,9 @@ const S={ leads:[], team:[], staff:[] };
 async function ensureAuth(){
   const {data:{session}}=await supa.auth.getSession();
   if(session) return session;
+  window.location.replace('/login/index.html?next=' + encodeURIComponent(location.pathname));
+  return await new Promise(()=>{});
+  /* eslint-disable no-unreachable */
   document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate">
     <h1>YABBAI <b>//</b> AGENCY FLOOR</h1>
     <p>Sign in. Directors and managers assign and oversee; callers get their assigned real leads with a tailored guide for each one.</p>

@@ -65,8 +65,8 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const SUPABASE_URL='PASTE_YOUR_SUPABASE_URL', SUPABASE_ANON_KEY='PASTE_YOUR_ANON_KEY';
+import { createClient } from '/shared/realm-client.js';
+const SUPABASE_URL=window.location.origin, SUPABASE_ANON_KEY='realm';
 const TARGET=50;
 const $=s=>document.querySelector(s);
 const AUD=n=>'$'+Number(n||0).toLocaleString('en-AU');
@@ -81,6 +81,9 @@ const S={specs:[],products:[],cat:{total:0,live:0,deliverable:0,building:0,conce
 async function ensureAuth(){
   const {data:{session}}=await supa.auth.getSession();
   if(session)return session;
+  window.location.replace('/login/index.html?next=' + encodeURIComponent(location.pathname));
+  return await new Promise(()=>{});
+  /* eslint-disable no-unreachable */
   document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate"><h1>YABBAI <b>//</b> CATALOG STUDIO</h1><p>Director sign-in. Ideate products from your real skills, generate listings, audit them white-hat, and list only what you can deliver.</p><input id="em" type="email" placeholder="director@yabbai.network"><button class="btn" id="go" style="width:100%">Send magic link</button><p class="hint" id="msg" style="margin-top:8px"></p></div></div>`;
   $('#go').onclick=async()=>{const e=$('#em').value.trim();if(!e)return;const {error}=await supa.auth.signInWithOtp({email:e,options:{emailRedirectTo:location.href}});$('#msg').textContent=error?error.message:'Link sent.';};
   return new Promise(res=>supa.auth.onAuthStateChange((_e,s)=>{if(s)res(s)}));
