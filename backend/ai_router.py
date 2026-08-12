@@ -20,6 +20,7 @@ what the other AIs do.
 import os
 import json
 import time
+import uuid
 import asyncio
 import logging
 
@@ -36,6 +37,7 @@ from network_db import get_raw_settings, DEFAULTS
 from auth_router import require_director
 from yabbai_learning import (record_exchange, get_exemplars, build_learned_context,
                              learning_report, export_jsonl)
+import ai_log
 
 load_dotenv()
 
@@ -66,7 +68,9 @@ async def _nvidia_complete(s, system, prompt, stream=False):
                                                     temperature=0.4, max_tokens=1024, stream=True), model
     r = await client.chat.completions.create(model=model, messages=msgs,
                                              temperature=0.4, max_tokens=1024)
-    return r.choices[0].message.content, model
+    u = getattr(r, "usage", None)
+    usage = {"in": u.prompt_tokens, "out": u.completion_tokens} if u else None
+    return r.choices[0].message.content, model, usage
 
 
 def _emergent_chat(s, system, session_id):
@@ -80,7 +84,7 @@ async def _emergent_complete(s, system, prompt, session_id):
         raise RuntimeError("Emergent LLM key not set")
     chat = _emergent_chat(s, system, session_id)
     content = await chat.send_message(UserMessage(text=prompt))
-    return content, s.get("emergent_model") or DEFAULTS["emergent_model"]
+    return content, s.get("emergent_model") or DEFAULTS["emergent_model"], None
 
 
 async def _yabbai_complete(s, system, prompt):
@@ -96,7 +100,7 @@ async def _yabbai_complete(s, system, prompt):
         d = r.json()
     content = (d.get("content") or d.get("reply") or d.get("response")
                or d.get("text") or (d.get("message") if isinstance(d.get("message"), str) else ""))
-    return content, s.get("yabbai_model") or DEFAULTS["yabbai_model"]
+    return content, s.get("yabbai_model") or DEFAULTS["yabbai_model"], None
 
 
 # ── observability + rate-limit state (in-memory; resets on restart) ────────────
@@ -160,7 +164,9 @@ async def _openai_http_complete(s, system, prompt, prefix, label):
             raise _ModelNotFound(model)
     r.raise_for_status()
     d = r.json()
-    return d["choices"][0]["message"]["content"], model
+    u = d.get("usage") or {}
+    usage = {"in": u.get("prompt_tokens"), "out": u.get("completion_tokens")} if u else None
+    return d["choices"][0]["message"]["content"], model, usage
 
 
 async def _groq_complete(s, system, prompt):
@@ -169,6 +175,24 @@ async def _groq_complete(s, system, prompt):
 
 async def _grok_complete(s, system, prompt):
     return await _openai_http_complete(s, system, prompt, "grok", "xAI (Grok)")
+
+
+PAID_TIERS = {"emergent"}
+
+
+def _http_status_of(e):
+    r = getattr(e, "response", None)
+    return getattr(r, "status_code", None) or getattr(e, "status_code", None)
+
+
+def _log_req(**kw):
+    """Fire-and-forget durable request log (ai_log.py)."""
+    async def _run():
+        try:
+            await ai_log.log_request(**kw)
+        except Exception:
+            log.debug("request log failed", exc_info=True)
+    asyncio.create_task(_run())
 
 
 def _learn(tier, model, prompt, content, latency_ms, session_id):
@@ -196,55 +220,94 @@ def _order(s):
     return order or ["emergent"]
 
 
-async def route_complete(system, prompt, session_id="yabbai", client_data=False):
+async def route_complete(system, prompt, session_id="yabbai", client_data=False,
+                         task_type=None, sensitive=False):
     """Try enabled tiers in order until one answers.
-    client_data=True excludes external free tiers (Groq/Grok) per data policy."""
+    client_data=True excludes external free tiers (Groq/Grok) per data policy.
+    Every request is durably logged to Mongo (ai_log.py) with its fallthrough trail."""
     s = await get_raw_settings()
+    order = _order(s)
     errors = {}
-    for t in _order(s):
+    attempts = []
+    fell_through = []
+    rid = uuid.uuid4().hex
+    task = task_type or session_id
+    for t in order:
         if client_data and t in CLIENT_DATA_EXCLUDED:
             errors[t] = "skipped (client-data policy)"
+            attempts.append({"tier": t, "ok": False, "skipped": True,
+                             "error": "client-data policy", "http_status": None, "latency_ms": None})
             continue
         if _COLD.get(t, 0) > time.time():
             errors[t] = f"cold: rate-limited, {int(_COLD[t] - time.time())}s left"
+            attempts.append({"tier": t, "ok": False, "skipped": True,
+                             "error": "cold (rate-limited)", "http_status": None, "latency_ms": None})
             continue
         st = _stat(t)
         st["requests"] += 1
         t0 = time.time()
         try:
             if t == "emergent":
-                content, model = await _emergent_complete(s, system, prompt, session_id)
+                content, model, usage = await _emergent_complete(s, system, prompt, session_id)
             elif t == "nvidia":
-                content, model = await _nvidia_complete(s, system, prompt)
+                content, model, usage = await _nvidia_complete(s, system, prompt)
             elif t == "groq":
-                content, model = await _groq_complete(s, system, prompt)
+                content, model, usage = await _groq_complete(s, system, prompt)
             elif t == "grok":
-                content, model = await _grok_complete(s, system, prompt)
+                content, model, usage = await _grok_complete(s, system, prompt)
             elif t == "yabbai":
-                content, model = await _yabbai_complete(s, await _yabbai_system(system, prompt), prompt)
+                content, model, usage = await _yabbai_complete(s, await _yabbai_system(system, prompt), prompt)
             else:
                 continue
             latency = (time.time() - t0) * 1000
             st["latency_ms_total"] += latency
             if content and content.strip():
                 st["answered"] += 1
+                attempts.append({"tier": t, "ok": True, "skipped": False, "error": None,
+                                 "http_status": 200, "latency_ms": round(latency, 1)})
                 if t != "yabbai":
                     _learn(t, model, prompt, content, latency, session_id)
-                return {"content": content, "tier": t, "model": model}
+                _log_req(request_id=rid, task_type=task, tier_requested=order[0],
+                         tier_served=t, model=model, latency_ms=round(latency, 1),
+                         tokens_in=(usage or {}).get("in"), tokens_out=(usage or {}).get("out"),
+                         error=None, http_status=200, fell_through_from=list(fell_through),
+                         attempts=attempts, sensitive=sensitive, paid=t in PAID_TIERS,
+                         prompt=prompt, response=content, session_id=session_id)
+                return {"content": content, "tier": t, "model": model, "request_id": rid}
             errors[t] = "empty response"
+            fell_through.append(t)
+            attempts.append({"tier": t, "ok": False, "skipped": False, "error": "empty response",
+                             "http_status": 200, "latency_ms": round(latency, 1)})
         except _RateLimited as e:
             st["http_429"] += 1
             cold = _parse_retry_after(e.retry_after)
             _COLD[t] = time.time() + cold
             log.warning("%s rate-limited (429) — cold %ss, falling through", t, cold)
             errors[t] = f"429 rate-limited (cold {cold}s)"
+            fell_through.append(t)
+            attempts.append({"tier": t, "ok": False, "skipped": False,
+                             "error": f"429 rate-limited (cold {cold}s)", "http_status": 429,
+                             "latency_ms": round((time.time() - t0) * 1000, 1)})
         except _ModelNotFound as e:
             st["errors"] += 1
             log.warning("%s model not found: '%s' — falling through", t, e.model)
             errors[t] = f"model not found: {e.model}"
+            fell_through.append(t)
+            attempts.append({"tier": t, "ok": False, "skipped": False,
+                             "error": f"model not found: {e.model}", "http_status": 404,
+                             "latency_ms": round((time.time() - t0) * 1000, 1)})
         except Exception as e:
             st["errors"] += 1
             errors[t] = str(e)[:160]
+            fell_through.append(t)
+            attempts.append({"tier": t, "ok": False, "skipped": False, "error": str(e)[:160],
+                             "http_status": _http_status_of(e),
+                             "latency_ms": round((time.time() - t0) * 1000, 1)})
+    _log_req(request_id=rid, task_type=task, tier_requested=order[0] if order else None,
+             tier_served=None, model=None, latency_ms=None, tokens_in=None, tokens_out=None,
+             error="all routing tiers failed", http_status=502,
+             fell_through_from=list(fell_through), attempts=attempts, sensitive=sensitive,
+             paid=False, prompt=prompt, response=None, session_id=session_id)
     raise HTTPException(502, {"error": "all routing tiers failed", "details": errors})
 
 
@@ -283,17 +346,30 @@ async def providers(user=Depends(require_director)):
 
 
 @router.get("/stats")
-async def stats(user=Depends(require_director)):
-    """Per-tier observability: which tier actually answered, not which was configured."""
+async def stats(days: int = 7, user=Depends(require_director)):
+    """Durable per-tier observability from Mongo: served/429s/errors/latency/rating,
+    paid-tier hits and the free-vs-paid ratio. Survives restarts."""
+    data = await ai_log.stats(min(max(days, 1), 90))
     now = time.time()
-    out = {}
-    for t, st in TIER_STATS.items():
-        n = st["requests"] or 0
-        out[t] = {"requests": st["requests"], "answered": st["answered"],
-                  "http_429": st["http_429"], "errors": st["errors"],
-                  "avg_latency_ms": round(st["latency_ms_total"] / n, 1) if n else 0.0}
-    cold = {t: int(ts - now) for t, ts in _COLD.items() if ts > now}  # seconds remaining
-    return {"ok": True, "tiers": out, "cold_seconds_remaining": cold}
+    data["cold_seconds_remaining"] = {t: int(ts - now) for t, ts in _COLD.items() if ts > now}
+    data["storage"] = await ai_log.storage_status()
+    data["ok"] = True
+    return data
+
+
+class RateBody(BaseModel):
+    request_id: str
+    rating: int
+
+
+@router.post("/rate")
+async def rate_response(body: RateBody, user=Depends(require_director)):
+    """Thumbs up (+1) / down (-1) on a logged AI response."""
+    if body.rating not in (1, -1):
+        raise HTTPException(422, "rating must be 1 or -1")
+    if not await ai_log.rate(body.request_id, body.rating):
+        raise HTTPException(404, "unknown request_id")
+    return {"ok": True}
 
 
 # ── learning: report back + upgrade dataset ───────────────────────────────────
@@ -335,15 +411,15 @@ async def test_provider(body: TestBody, user=Depends(require_director)):
     t = body.provider
     try:
         if t == "nvidia":
-            c, m = await _nvidia_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+            c, m, _u = await _nvidia_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
         elif t == "groq":
-            c, m = await _groq_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+            c, m, _u = await _groq_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
         elif t == "grok":
-            c, m = await _grok_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+            c, m, _u = await _grok_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
         elif t == "emergent":
-            c, m = await _emergent_complete(s, "You are a connectivity test.", "Reply with the single word: OK", "test")
+            c, m, _u = await _emergent_complete(s, "You are a connectivity test.", "Reply with the single word: OK", "test")
         elif t == "yabbai":
-            c, m = await _yabbai_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+            c, m, _u = await _yabbai_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
         else:
             return {"ok": False, "message": "unknown provider"}
         return {"ok": True, "tier": t, "model": m, "sample": (c or "")[:120]}
@@ -356,26 +432,53 @@ class ChatBody(BaseModel):
     message: str
     session_id: str = "yabbai-chat"
     system: str | None = None
+    sensitive: bool = False
 
 
 @router.post("/chat")
 async def chat(body: ChatBody, user=Depends(require_director)):
-    res = await route_complete(body.system or SYSTEM_DEFAULT, body.message, body.session_id)
+    res = await route_complete(body.system or SYSTEM_DEFAULT, body.message, body.session_id,
+                               task_type="chat", sensitive=body.sensitive)
     return {"ok": True, "type": "message", "content": res["content"],
-            "tier": res["tier"], "model": res["model"]}
+            "tier": res["tier"], "model": res["model"], "request_id": res["request_id"]}
 
 
 @router.post("/chat/stream")
 async def chat_stream(body: ChatBody, user=Depends(require_director)):
     system = body.system or SYSTEM_DEFAULT
+    rid = uuid.uuid4().hex
 
     async def gen():
         s = await get_raw_settings()
+        order = _order(s)
         last_err = None
-        for t in _order(s):
+        attempts = []
+        fell = []
+
+        def _ok(t, model, content, t0, usage=None):
+            latency = round((time.time() - t0) * 1000, 1)
+            attempts.append({"tier": t, "ok": True, "skipped": False, "error": None,
+                             "http_status": 200, "latency_ms": latency})
+            _log_req(request_id=rid, task_type="chat", tier_requested=order[0] if order else None,
+                     tier_served=t, model=model, latency_ms=latency,
+                     tokens_in=(usage or {}).get("in"), tokens_out=(usage or {}).get("out"),
+                     error=None, http_status=200, fell_through_from=list(fell),
+                     attempts=attempts, sensitive=body.sensitive, paid=t in PAID_TIERS,
+                     prompt=body.message, response=content, session_id=body.session_id)
+
+        def _fail(t, err, status, t0):
+            fell.append(t)
+            attempts.append({"tier": t, "ok": False, "skipped": False, "error": str(err)[:160],
+                             "http_status": status,
+                             "latency_ms": round((time.time() - t0) * 1000, 1)})
+
+        for t in order:
             if _COLD.get(t, 0) > time.time():
                 last_err = f"{t} cold (rate-limited)"
+                attempts.append({"tier": t, "ok": False, "skipped": True,
+                                 "error": "cold (rate-limited)", "http_status": None, "latency_ms": None})
                 continue
+            t0 = time.time()
             try:
                 if t == "nvidia":
                     stream, model = await _nvidia_complete(s, system, body.message, stream=True)
@@ -386,16 +489,20 @@ async def chat_stream(body: ChatBody, user=Depends(require_director)):
                         if delta:
                             acc.append(delta)
                             yield delta
-                    _learn(t, model, body.message, "".join(acc), 0.0, body.session_id)
+                    content = "".join(acc)
+                    _learn(t, model, body.message, content, 0.0, body.session_id)
+                    _ok(t, model, content, t0)
                     return
                 if t in ("groq", "grok"):
-                    content, model = await (_groq_complete if t == "groq" else _grok_complete)(s, system, body.message)
+                    content, model, usage = await (_groq_complete if t == "groq" else _grok_complete)(s, system, body.message)
                     yield content or ""
                     _learn(t, model, body.message, content or "", 0.0, body.session_id)
+                    _ok(t, model, content or "", t0, usage)
                     return
                 if t == "yabbai":
-                    content, _ = await _yabbai_complete(s, await _yabbai_system(system, body.message), body.message)
+                    content, model, _u = await _yabbai_complete(s, await _yabbai_system(system, body.message), body.message)
                     yield content or ""
+                    _ok(t, model, content or "", t0)
                     return
                 if t == "emergent":
                     if not EMERGENT_LLM_KEY:
@@ -408,20 +515,31 @@ async def chat_stream(body: ChatBody, user=Depends(require_director)):
                             yield ev.content
                         elif isinstance(ev, StreamDone):
                             break
-                    _learn(t, s.get("emergent_model") or DEFAULTS["emergent_model"],
-                           body.message, "".join(acc), 0.0, body.session_id)
+                    model = s.get("emergent_model") or DEFAULTS["emergent_model"]
+                    content = "".join(acc)
+                    _learn(t, model, body.message, content, 0.0, body.session_id)
+                    _ok(t, model, content, t0)
                     return
             except _RateLimited as e:
-                _COLD[t] = time.time() + _parse_retry_after(e.retry_after)
+                cold = _parse_retry_after(e.retry_after)
+                _COLD[t] = time.time() + cold
                 last_err = f"{t} 429"
+                _fail(t, f"429 rate-limited (cold {cold}s)", 429, t0)
                 continue
             except Exception as e:
                 last_err = str(e)
+                _fail(t, e, _http_status_of(e), t0)
                 continue
+        _log_req(request_id=rid, task_type="chat", tier_requested=order[0] if order else None,
+                 tier_served=None, model=None, latency_ms=None, tokens_in=None, tokens_out=None,
+                 error=str(last_err or "all routing tiers failed")[:160], http_status=502,
+                 fell_through_from=list(fell), attempts=attempts, sensitive=body.sensitive,
+                 paid=False, prompt=body.message, response=None, session_id=body.session_id)
         yield f"[all routing tiers failed: {last_err}]"
 
     return StreamingResponse(gen(), media_type="text/plain",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+                                      "X-Request-Id": rid})
 
 
 # ── edge-function equivalents (used by the web surfaces) ──────────────────────

@@ -130,3 +130,32 @@ daily caps count pending+executed · compliance gate blocks guarantee/risk-free 
 - FIXED prod deploy blockers: (1) stale half-written `yabbai_learning.py` caused ImportError → backend crashloop in prod deploy (Aug attempts); file rewritten, backend boots clean. (2) `.gitignore` excluded `.env` files → removed; deployment_agent now PASSES.
 - Verified (agent-tested, preview): /api/ai/health shows five-tier order; live /diagnose answered by nvidia and auto-recorded exemplar #1; get_exemplars retrieval + learned-context build + JSONL export all work; groq (no key) and grok (403 credits) fall through cleanly; settings JS syntax OK; deployment scan PASS.
 - PENDING: user to provide real Groq key (gsk_…, console.groq.com — paste in /settings or prod secrets) and add xAI team credits for Grok 4.5; redeploy to yabbai.network.
+
+## Phase 14 — Phased build spec: PHASE 1 logging substrate (2026-08-12, user-directed, credit-disciplined)
+User supplied a 5-phase build spec (80 builder credits total; EMERGENT_LLM_KEY holds 10 runtime credits).
+Goal: free tiers do the work, paid = last resort, all measured. STOP at each checkpoint for user approval.
+User decisions: (a) grok tier KEPT but to be disabled-by-default via env (Phase 2); (b) client-data policy
+becomes an ALLOWLIST (yabbai only) failing closed — Phase 2; Groq may be proposed with citation only.
+- NEW `backend/ai_log.py`: durable Mongo request log. `ai_request_log` (ts, task_type, tier_requested,
+  tier_served, model, latency_ms, tokens_in/out, error, http_status, fell_through_from[], attempts[],
+  sensitive, paid, rating) + `ai_request_bodies` (TTL default 90d, per-field byte cap, NEVER written for
+  sensitive:true). Env: `AI_BODY_TTL_DAYS` (90) · `AI_BODY_MAX_BYTES` (16384) · `AI_LOG_ALARM_MB` (400,
+  storage alarm logged + surfaced in /stats before Atlas M0's 512MB cap bites).
+- ai_router.py: route_complete + /chat/stream now log every request fire-and-forget with full fallthrough
+  trail; tier fns return real provider token usage (null when provider doesn't report — never estimated);
+  /chat returns request_id; /chat/stream sets X-Request-Id header; ChatBody gains `sensitive` flag.
+- NEW `POST /api/ai/rate` {request_id, rating:±1} (director). `GET /api/ai/stats?days=N` now Mongo-backed:
+  per-tier tried/served/429s/errors/mean latency/mean rating/paid_hits + free_ratio + storage status.
+- Hub: "AI served free · 7d" ratio tile + "Paid AI hits · 7d" tile (data-testids ai-free-ratio-tile /
+  ai-paid-hits-tile); failed fetch renders "—" never 0; polls on the 30s cadence.
+- /ai console: ✓/✗ rating buttons on every response (ai-rate-up/-down/-rated); stale "Anthropic→OpenRouter"
+  copy corrected to the real five-tier order.
+- .env commit guard appended to `.git/hooks/pre-commit` (blocks staged .env*, allows .env.example) — verified blocking.
+- Verified live: real nvidia-served request logged w/ tokens 144/90, rating written, sensitive request
+  skipped bodies, TTL index 90d, hub tile renders 100% free / 0 paid, console rate flow e2e green.
+- NEXT (user-gated checkpoints): Phase 2 free-first ladder (add cerebras/google/openrouter tiers, grok
+  disabled default, paid guard ≥3 free tries or force_paid, allowlist client-data, OpenRouter $6.50 cap
+  spend tracking + 402→fallthrough) · Phase 3 Gold Hunter mount at /api/goldhunter (lifespan gotcha:
+  Mount doesn't fire sub-app startup; swarm behind env flag; pin DB_NAME) · Phase 4 /api/ai/diagnose
+  read-only self-diagnosis + hourly run (env-gated single runner, include /api/realm in sweep) ·
+  Phase 5a privacy lane / 5b dual-answer / 5c key names (Tavily, CoinSpot — fold into 2/3 free).

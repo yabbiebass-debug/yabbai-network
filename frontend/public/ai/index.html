@@ -32,16 +32,21 @@
   .btn{padding:12px 18px;border:1px solid var(--purple);color:var(--purple);font-weight:700;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;background:transparent;cursor:pointer;transition:background .15s,color .15s}
   .btn:hover{background:var(--purple);color:#fff}
   .hint{color:var(--dim2);font-size:10px;margin-top:8px}
+  .rate{display:flex;gap:6px;margin-top:8px}
+  .rate button{background:transparent;border:1px solid var(--line);color:var(--dim);font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:99px;cursor:pointer;transition:border-color .15s,color .15s}
+  .rate button:hover{border-color:var(--green);color:var(--green)}
+  .rate button.dn:hover{border-color:var(--red);color:var(--red)}
+  .rate .rated{font-size:10px;color:var(--dim2)}
 </style>
 </head>
 <body>
 <div class="nav">
   <div class="brand">YABBAI<b>.</b>AI</div>
-  <span class="chip"><span class="dot"></span>anthropic · claude sonnet</span>
+  <span class="chip"><span class="dot"></span>free-first routing</span>
 </div>
 <div class="wrap">
   <h1>The <em>routed brain</em>.</h1>
-  <div class="sub">Anthropic → OpenRouter → Ollama. One proxy, the clan never goes dark. <a href="/hub/index.html">← back to hub</a></div>
+  <div class="sub">NVIDIA → Groq → Grok → YABBAI → Claude. Free tiers first, paid last. <a href="/hub/index.html">← back to hub</a></div>
   <div id="log">
     <div class="msg ai"><span class="who">YABBAI</span>I'm the network's brain. Ask me about leads, copy, product audits, diagnostics or code.</div>
   </div>
@@ -49,7 +54,7 @@
     <input id="inp" placeholder="Ask YABBAI…" data-testid="ai-chat-input" autocomplete="off">
     <button class="btn" id="send" data-testid="ai-chat-send">Send</button>
   </div>
-  <div class="hint">Powered by the Emergent Universal LLM key · streaming responses.</div>
+  <div class="hint">Multi-tier routed · free-first · streaming responses · rate each answer to train the router.</div>
 </div>
 <script>
 const API = window.location.origin + '/api/ai';
@@ -79,11 +84,28 @@ async function ask(){
   try{
     const r = await fetch(API+'/chat/stream', {method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
       body: JSON.stringify({message:q, session_id:'ai-console'})});
+    const rid = r.headers.get('X-Request-Id');
     const reader = r.body.getReader(); const dec = new TextDecoder();
     while(true){ const {done,value} = await reader.read(); if(done) break;
       target.textContent += dec.decode(value,{stream:true}); log.scrollTop = log.scrollHeight; }
+    if(rid) addRating(target.parentElement, rid);
   }catch(e){ target.textContent = 'Error reaching the brain: ' + e; }
   send.disabled = false; inp.focus();
+}
+function addRating(msgEl, rid){
+  const row = document.createElement('div'); row.className='rate';
+  const up = document.createElement('button'); up.textContent='✓ helpful'; up.setAttribute('data-testid','ai-rate-up');
+  const dn = document.createElement('button'); dn.textContent='✗ off'; dn.className='dn'; dn.setAttribute('data-testid','ai-rate-down');
+  async function vote(v){
+    try{
+      const res = await fetch(API+'/rate',{method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:rid,rating:v})});
+      if(res.ok){ row.innerHTML = '<span class="rated" data-testid="ai-rated">'+(v===1?'✓ rated helpful':'✗ rated off')+'</span>'; }
+    }catch(e){}
+  }
+  up.onclick = () => vote(1); dn.onclick = () => vote(-1);
+  row.appendChild(up); row.appendChild(dn);
+  msgEl.appendChild(row); log.scrollTop = log.scrollHeight;
 }
 send.onclick = ask;
 inp.addEventListener('keydown', e => { if(e.key==='Enter') ask(); });

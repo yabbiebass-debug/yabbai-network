@@ -157,7 +157,8 @@ const num = v => (v===null||v===undefined) ? '—' : v;
 
 /* ── state ── */
 const ME  = { role:null, uid:null };
-const NET = { mrr:0, cash:0, leads:null, clients:0, enq:null, diag:null, products:0, approvals:null };
+const NET = { mrr:0, cash:0, leads:null, clients:0, enq:null, diag:null, products:0, approvals:null,
+              aiFreeRatio:null, aiPaidHits:null, aiServed:null, aiStorageAlarm:false };
 const SVC = { revenue:{live:false,ks:false,income:0,pending:0}, ai:{live:false}, goldscout:{live:false}, defi:{live:false}, ops:{live:false} };
 let adminKey = sessionStorage.getItem('yabbai_admin_key') || '';
 let svcTimer  = null;
@@ -258,6 +259,23 @@ async function loadNet(){
   NET.approvals= n(s?.strip?.approvals);
   renderStrip();
   renderNavChips();
+}
+
+/* ── AI router stats — the free-vs-paid ratio this build is measured by.
+     A failed read renders "—", never a confident 0. ── */
+async function loadAiStats(){
+  try{
+    const r = await fetch(window.location.origin + '/api/ai/stats?days=7', { credentials:'include' });
+    if(!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    NET.aiFreeRatio    = (typeof d.free_ratio === 'number') ? d.free_ratio : null;
+    NET.aiPaidHits     = (typeof d.paid_hits === 'number') ? d.paid_hits : null;
+    NET.aiServed       = (typeof d.served === 'number') ? d.served : null;
+    NET.aiStorageAlarm = !!(d.storage && d.storage.alarm);
+  }catch{
+    NET.aiFreeRatio = null; NET.aiPaidHits = null; NET.aiServed = null;
+  }
+  renderStrip();
 }
 
 /* ═══════════════════════ SHELL ══════════════════════════ */
@@ -373,7 +391,15 @@ function renderStrip(){
     <div class="stat"><div class="v">${num(NET.enq)}</div><div class="l">Widget enquiries</div></div>
     <div class="stat"><div class="v">${num(NET.diag)}</div><div class="l">Fix-plans run</div></div>
     <div class="stat"><div class="v p">${NET.products}</div><div class="l">Products live</div></div>
-    <div class="stat"><div class="v ${(NET.approvals!==null && (NET.approvals+SVC.revenue.pending)>0)?'a':''}">${NET.approvals===null ? '—' : (NET.approvals + SVC.revenue.pending)}</div><div class="l">Pending approvals</div></div>`;
+    <div class="stat"><div class="v ${(NET.approvals!==null && (NET.approvals+SVC.revenue.pending)>0)?'a':''}">${NET.approvals===null ? '—' : (NET.approvals + SVC.revenue.pending)}</div><div class="l">Pending approvals</div></div>
+    <div class="stat" data-testid="ai-free-ratio-tile">
+      <div class="v ${NET.aiFreeRatio===null?'':'g'}">${NET.aiFreeRatio===null?'—':Math.round(NET.aiFreeRatio*100)+'%'}</div>
+      <div class="l">AI served free · 7d${NET.aiStorageAlarm?' ⚠ log storage':''}</div>
+    </div>
+    <div class="stat" data-testid="ai-paid-hits-tile">
+      <div class="v ${NET.aiPaidHits>0?'a':''}">${num(NET.aiPaidHits)}</div>
+      <div class="l">Paid AI hits · 7d</div>
+    </div>`;
 }
 
 function renderServices(){
@@ -589,12 +615,12 @@ ME.email = user.email;
 ME.name  = user.name;
 
 shell();
-await Promise.all([ loadNet(), pollServices() ]);
+await Promise.all([ loadNet(), pollServices(), loadAiStats() ]);
 
 // The strip refreshes on the same 30s cadence as the service badges. (Supabase
 // realtime only fires once the Postgres schema is live AND surfaces write there —
 // today the realm store is the truth, and it has no push channel, so poll honestly.)
-svcTimer = setInterval(() => { pollServices(); loadNet(); }, 30_000);
+svcTimer = setInterval(() => { pollServices(); loadNet(); loadAiStats(); }, 30_000);
 </script>
 </body>
 </html>
