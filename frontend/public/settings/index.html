@@ -75,6 +75,19 @@
   <div class="eyebrow">Model tiers — drag the priority with the arrows</div>
   <div id="tiers"></div>
 
+  <div class="eyebrow">GoldScout · Tavily — news scout credits</div>
+  <div class="card" id="tvCard">
+    <div class="chead"><h3><i>▸</i> Tavily API key</h3><span class="keyset" id="tvKeyset">not set</span></div>
+    <label>Tavily API key — secret, stored server-side, never shown again</label>
+    <input type="password" id="tavily_api_key" placeholder="tvly-..." data-testid="tavily-key">
+    <div class="row">
+      <button class="btn sm green" id="tvTest" data-testid="tavily-test">Save &amp; test — show remaining credits</button>
+      <button class="btn sm ghost" id="tvRefresh" data-testid="tavily-refresh">Refresh usage</button>
+    </div>
+    <div class="test" id="tvResult"></div>
+    <div class="hint">Free key at <b>app.tavily.com</b> — 1,000 credits/month, monthly reset. Scanner is <b id="tvMode">manual only</b> (set env <code>GOLDSCOUT_INTERVAL_SECS</code> to enable scheduling). Remaining credits also surface at <a href="/api/ai/stats" target="_blank">/api/ai/stats</a>. Preview and production keep separate Mongo settings — paste here for preview, then paste again at <code>https://yabbai.network/settings/</code> after you redeploy prod.</div>
+  </div>
+
   <div class="eyebrow">Supabase — live Postgres data layer</div>
   <div class="card" id="sbCard">
     <div class="chead"><h3><i>▸</i> Supabase</h3><span class="keyset" id="sbKeyset">not set</span></div>
@@ -126,7 +139,7 @@ const TIERS = {
   openrouter:{label:'OpenRouter', accent:':free variants by default — paid models only when explicitly flagged', icon:'▸'},
   grok:     {label:'xAI Grok', accent:'dormant by default — flip XAI_ENABLED (or the toggle) when the team is funded', icon:'▸'},
   emergent: {label:'Emergent · Claude', accent:'PAID, guarded — only after 3+ free tiers fail, or force_paid', icon:'▸'},
-  yabbai:   {label:'YABBAI Local / Ollama', accent:'your self-hosted box — the ONLY tier allowed client data; off by default', icon:'▸'},
+  yabbai:   {label:'YABBAI Local / Ollama', accent:'your self-hosted box — the only tier for confidential data; off by default', icon:'▸'},
 };
 const CANONICAL_ORDER = ['nvidia','groq','cerebras','google','openrouter','grok','yabbai','emergent'];
 
@@ -167,8 +180,58 @@ function render(){
   const sb = document.getElementById('save');
   if(sb) sb.disabled = false;
   renderSupabase();
+  renderTavily();
   loadRecovery();
   loadLearning();
+}
+
+async function renderTavily(){
+  const badge = $('tvKeyset');
+  const modeEl = $('tvMode');
+  const ks = S.secrets_set && S.secrets_set.tavily_api_key;
+  if(badge){ badge.textContent = ks ? 'configured' : 'not set'; badge.className = 'keyset '+(ks?'yes':''); }
+  const interval = Number(S.goldscout_interval_secs || 0);
+  if(modeEl) modeEl.textContent = interval > 0 ? ('scheduled every '+interval+'s') : 'manual only';
+  const btn = $('tvTest'); if(btn) btn.onclick = tavilyTest;
+  const rbtn = $('tvRefresh'); if(rbtn) rbtn.onclick = tavilyRefresh;
+  if(ks) tavilyRefresh(true); // best-effort show of remaining credits on load
+}
+
+async function tavilyTest(){
+  const res = $('tvResult'); res.className='test'; res.textContent='Saving & testing…';
+  const key = $('tavily_api_key').value.trim();
+  const payload = {};
+  if(key) payload.tavily_api_key = key;
+  if(Object.keys(payload).length){
+    const put = await fetch(API+'/api/settings',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!put.ok){ res.className='test err'; res.textContent='✗ Could not save key ('+put.status+').'; return; }
+  }
+  await tavilyRefresh(false, res);
+  $('tavily_api_key').value = '';
+  const badge=$('tvKeyset'); if(badge){ badge.textContent='configured'; badge.className='keyset yes'; }
+}
+
+async function tavilyRefresh(silent, targetEl){
+  const res = targetEl || $('tvResult');
+  if(!silent){ res.className='test'; res.textContent='Checking Tavily…'; }
+  let d;
+  try{
+    d = await fetch(API+'/api/goldscout/tavily/status',{credentials:'include'}).then(r=>r.json());
+  }catch(e){ if(!silent){ res.className='test err'; res.textContent='✗ Could not reach GoldScout.'; } return; }
+  if(!d || d.configured === false){
+    if(!silent){ res.className='test err'; res.textContent='No Tavily key saved yet.'; }
+    return;
+  }
+  if(!d.ok){
+    res.className='test err';
+    res.textContent = '✗ Tavily said: '+ (d.error || 'unknown error') +' — key may be wrong or Tavily is down.';
+    return;
+  }
+  const rem = (d.remaining==null) ? '—' : d.remaining;
+  const lim = (d.limit==null) ? 'unlimited' : d.limit;
+  const use = (d.usage==null) ? '—' : d.usage;
+  res.className='test ok';
+  res.innerHTML = `✓ Tavily live — <b>${rem}</b> credits left (${use} used of ${lim}${d.plan? ' · '+d.plan:''}).`;
 }
 
 async function loadLearning(){
@@ -304,7 +367,7 @@ function tierBody(t, idx, enabled){
     </div>
     <div class="row"><button class="btn sm green" data-test="groq">Test</button></div>
     <div class="test" id="test_groq"></div>
-    <div class="hint">Free key at <b>console.groq.com</b> → API Keys. Client/lead data never routes here.</div>`;
+    <div class="hint">Free key at <b>console.groq.com</b> → API Keys. Business-class data (scope briefs, call guides, lead research) allowed — Groq's terms bar training on customer data. Confidential (NDA/code/financials) never routes here. Tip: enable Zero Data Retention in Console → Data Controls (free).</div>`;
   if(t==='grok') return head + `
     <label>xAI API key</label>
     <input type="password" id="grok_api_key" placeholder="${secretSet('grok_api_key')?'•••••••• (saved — leave blank to keep)':'xai-...'}" data-testid="grok-key">

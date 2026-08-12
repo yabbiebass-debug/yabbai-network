@@ -22,17 +22,26 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Request, HTTPException, Header
 from pydantic import BaseModel
 
-from goldscout.core.scout import run_scout, clear_findings as _legacy_clear
+from goldscout.core.scout import run_scout, clear_findings as _legacy_clear, tavily_usage
 from goldscout.core.scam_analysis import GOLDEN_RULES, analyze_opportunity
 from goldscout.core import store
 from goldscout.core import market as market_mod
 from goldscout.core import safety as safety_mod
-from network_db import db
+from network_db import db, get_raw_settings
 from auth_router import _session_and_user
 
 router = APIRouter(prefix="/api/goldscout", tags=["goldscout"])
 
 _state = {"running": False, "last_run": None, "last_summary": None}
+
+
+async def _tavily_key() -> str:
+    s = await get_raw_settings()
+    return (s.get("tavily_api_key") or os.getenv("TAVILY_API_KEY", "") or "").strip()
+
+
+async def _tavily_configured() -> bool:
+    return bool(await _tavily_key())
 
 
 async def _require_user(request: Request, authorization: Optional[str]):
@@ -46,12 +55,27 @@ async def _require_user(request: Request, authorization: Optional[str]):
 
 @router.get("/health")
 async def health():
-    return {"ok": True, "app": "goldscout", "version": "3.0.0",
+    s = await get_raw_settings()
+    key = (s.get("tavily_api_key") or os.getenv("TAVILY_API_KEY", "") or "").strip()
+    interval = int(s.get("goldscout_interval_secs") or 0)
+    return {"ok": True, "app": "goldscout", "version": "3.1.0",
             "market_source": "dexscreener (live, no key)",
             "safety_sources": ["solana_rpc", "goplus"],
-            "news_scout": "tavily" if os.getenv("TAVILY_API_KEY") else "disabled (set TAVILY_API_KEY)",
+            "news_scout": "tavily" if key else "disabled (set TAVILY_API_KEY in /settings)",
+            "tavily_configured": bool(key),
+            "scanner_mode": "scheduled" if interval > 0 else "manual",
+            "scanner_interval_secs": interval,
             "persistence": "mongo",
             "ts": datetime.now(timezone.utc).isoformat()}
+
+
+# ── Tavily key status (real usage/limit/remaining, cached upstream) ──────────
+@router.get("/tavily/status")
+async def tavily_status(request: Request, authorization: Optional[str] = Header(None)):
+    """Live remaining Tavily credits — never invented. Called by /settings Test
+    button and surfaced under /api/ai/stats.tavily as well."""
+    await _require_user(request, authorization)
+    return await tavily_usage(await _tavily_key())
 
 
 # ── real market scan (live DEX data, no key) ──────────────────────────────────
@@ -96,9 +120,11 @@ async def token_safety(body: SafetyBody, request: Request, authorization: Option
 async def scout_run(background_tasks: BackgroundTasks, request: Request,
                     authorization: Optional[str] = Header(None)):
     user = await _require_user(request, authorization)
-    if not os.getenv("TAVILY_API_KEY"):
-        return {"ok": False, "message": "News scout needs TAVILY_API_KEY. The live MARKET scan "
-                                        "(/market/scan) works without it."}
+    key = await _tavily_key()
+    if not key:
+        return {"ok": False, "message": "News scout needs a Tavily key. Paste it at /settings → "
+                                        "GoldScout · Tavily. The live MARKET scan (/market/scan) "
+                                        "works without it."}
     if _state["running"]:
         return {"ok": False, "message": "Scout already running — check status"}
 
@@ -107,7 +133,7 @@ async def scout_run(background_tasks: BackgroundTasks, request: Request,
     async def _run():
         _state["running"] = True
         try:
-            result = await run_scout()
+            result = await run_scout(api_key=key)
             await store.add_findings(uid, result.get("findings", []))
             await store.record_scan(uid, "news", result.get("summary", {}))
             _state["last_summary"] = result.get("summary")
@@ -125,7 +151,7 @@ async def scout_run(background_tasks: BackgroundTasks, request: Request,
 async def scout_status():
     return {"running": _state["running"], "last_run": _state["last_run"],
             "last_summary": _state["last_summary"],
-            "tavily_configured": bool(os.getenv("TAVILY_API_KEY"))}
+            "tavily_configured": await _tavily_configured()}
 
 
 @router.get("/api/scout/findings")
@@ -199,7 +225,7 @@ async def opportunities(request: Request, authorization: Optional[str] = Header(
     user = await _require_user(request, authorization)
     findings = await store.load_findings(user["user_id"], risk_filter="all", category="all")
     return {"total": len(findings), "findings": findings,
-            "tavily_configured": bool(os.getenv("TAVILY_API_KEY"))}
+            "tavily_configured": await _tavily_configured()}
 
 
 class AnalyzeBody(BaseModel):

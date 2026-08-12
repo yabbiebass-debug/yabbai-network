@@ -14,8 +14,10 @@ Routing tiers (free-first ladder; paid tier last, always):
 PAID GUARD: a request only reaches emergent if 3+ free tiers were tried and failed,
 or it is explicitly flagged force_paid. Every paid hit is logged with its reason.
 
-CLIENT DATA: allowlist, default DENY. Only the yabbai tier may see client/lead data;
-if it is unavailable the request FAILS with a clear message — never a silent fallback.
+CLIENT DATA — two levels, unclassified fails closed to confidential:
+  • confidential — client private code/financials/credentials/NDA → yabbai ONLY.
+  • business — scope briefs, call guides, lead research → yabbai + groq (no-training
+    terms verified; 30-day abuse retention keeps groq out of confidential).
 
 Each request tries the enabled tiers in order until one answers. Settings are read
 from Mongo at request time, so rotating a key never needs a restart.
@@ -60,9 +62,19 @@ SYSTEM_DEFAULT = (
     "Never fabricate numbers; if data is missing, say so."
 )
 
-# Client-data ALLOWLIST — default DENY, fails closed. Only tiers the Director has
-# explicitly verified may see client/lead data. Never extended without approval.
-CLIENT_DATA_ALLOWED = {"yabbai"}
+# Two-level data policy (Director-approved). Unclassified/unknown → confidential.
+#   confidential — client private code, financials, credentials, NDA material
+#                  → yabbai (local) ONLY. Fail closed, no fallback.
+#   business     — scope briefs, call guides, lead research from public sources
+#                  → verified external tiers permitted.
+# groq is business-only: no-training per its Services Agreement, but 30-day abuse
+# retention keeps it out of confidential. cerebras/google/openrouter excluded from
+# both until the Director verifies their retention terms (google trains on free-tier
+# prompts outside UK/CH/EEA/EU).
+DATA_POLICY = {
+    "confidential": {"yabbai"},
+    "business": {"yabbai", "groq"},
+}
 
 
 # ── tier implementations ──────────────────────────────────────────────────────
@@ -221,11 +233,11 @@ PAID_TIERS = {"emergent"}
 
 
 def _free_failures(attempts):
-    """Free tiers that were tried and failed (cold + key-not-set count; client-data
-    policy skips do not — those tiers were never candidates)."""
+    """Free tiers that were tried and failed (cold + key-not-set count; data-policy
+    skips do not — those tiers were never candidates)."""
     return [a["tier"] for a in attempts
             if a["tier"] not in PAID_TIERS and not a.get("ok")
-            and not str(a.get("error") or "").startswith("client-data")
+            and not str(a.get("error") or "").startswith("data policy")
             and str(a.get("error") or "") != "paid guard"]
 
 
@@ -269,24 +281,28 @@ def _order(s):
     return order or ["emergent"]
 
 
-async def route_complete(system, prompt, session_id="yabbai", client_data=False,
+async def route_complete(system, prompt, session_id="yabbai", data_class=None,
                          task_type=None, sensitive=False, force_paid=False):
     """Walk the free-first ladder until a tier answers.
-    client_data=True: allowlist only (yabbai) — default deny, fails closed.
+    data_class: None/'open' → full ladder · 'business' → business allowlist ·
+    'confidential' (or ANY unrecognised value — fail closed on ambiguity) → yabbai only.
     Paid guard: emergent only after 3+ free tiers failed, or force_paid.
     Every request is durably logged (ai_log.py) with its fallthrough trail."""
     s = await get_raw_settings()
     order = _order(s)
+    allowed = None
+    if data_class and data_class != "open":
+        allowed = DATA_POLICY.get(data_class) or DATA_POLICY["confidential"]
     errors = {}
     attempts = []
     fell_through = []
     rid = uuid.uuid4().hex
     task = task_type or session_id
     for t in order:
-        if client_data and t not in CLIENT_DATA_ALLOWED:
-            errors[t] = "skipped (client-data allowlist: yabbai only)"
+        if allowed is not None and t not in allowed:
+            errors[t] = f"skipped (data policy: {data_class} → {'/'.join(sorted(allowed))} only)"
             attempts.append({"tier": t, "ok": False, "skipped": True,
-                             "error": "client-data policy", "http_status": None, "latency_ms": None})
+                             "error": "data policy", "http_status": None, "latency_ms": None})
             continue
         if t in PAID_TIERS and not force_paid:
             ff = _free_failures(attempts)
@@ -341,7 +357,7 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
                          tokens_in=(usage or {}).get("in"), tokens_out=(usage or {}).get("out"),
                          error=None, http_status=200, fell_through_from=list(fell_through),
                          attempts=attempts, sensitive=sensitive, paid=paid,
-                         paid_reason=paid_reason, cost_usd=cost,
+                         paid_reason=paid_reason, cost_usd=cost, data_class=data_class,
                          prompt=prompt, response=content, session_id=session_id)
                 return {"content": content, "tier": t, "model": model, "request_id": rid}
             errors[t] = "empty response"
@@ -383,20 +399,22 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
             attempts.append({"tier": t, "ok": False, "skipped": False, "error": str(e)[:160],
                              "http_status": _http_status_of(e),
                              "latency_ms": round((time.time() - t0) * 1000, 1)})
-    if client_data:
-        msg = ("client-data request failed: no allowlisted tier available (yabbai local "
-               "offline or disabled). External tiers are never used for client data.")
+    if allowed is not None:
+        msg = (f"{data_class}-class request failed: no allowlisted tier available "
+               f"(allowed: {', '.join(sorted(allowed))}). "
+               f"Other tiers are never used for this data class.")
         _log_req(request_id=rid, task_type=task, tier_requested=order[0] if order else None,
                  tier_served=None, model=None, latency_ms=None, tokens_in=None, tokens_out=None,
                  error=msg[:160], http_status=503, fell_through_from=list(fell_through),
-                 attempts=attempts, sensitive=sensitive, paid=False,
+                 attempts=attempts, sensitive=sensitive, paid=False, data_class=data_class,
                  prompt=prompt, response=None, session_id=session_id)
         raise HTTPException(503, {"error": msg, "details": errors})
     _log_req(request_id=rid, task_type=task, tier_requested=order[0] if order else None,
              tier_served=None, model=None, latency_ms=None, tokens_in=None, tokens_out=None,
              error="all routing tiers failed", http_status=502,
              fell_through_from=list(fell_through), attempts=attempts, sensitive=sensitive,
-             paid=False, prompt=prompt, response=None, session_id=session_id)
+             paid=False, data_class=data_class,
+             prompt=prompt, response=None, session_id=session_id)
     raise HTTPException(502, {"error": "all routing tiers failed", "details": errors})
 
 
@@ -455,6 +473,13 @@ async def stats(days: int = 7, user=Depends(require_director)):
     data["openrouter"]["key_live"] = await ai_log.openrouter_key_status(
         s.get("openrouter_api_key"),
         s.get("openrouter_base_url") or DEFAULTS["openrouter_base_url"])
+    # Tavily (GoldScout news scout) — real usage/limit, cached inside the helper.
+    try:
+        from goldscout.core.scout import tavily_usage as _tavily_usage
+        data["tavily"] = await _tavily_usage(s.get("tavily_api_key"))
+    except Exception:
+        data["tavily"] = {"configured": bool(s.get("tavily_api_key")), "ok": False,
+                          "error": "usage lookup failed"}
     data["ok"] = True
     return data
 
@@ -702,7 +727,7 @@ class ScopeBody(BaseModel):
 async def scope_brief(body: ScopeBody, user=Depends(require_director)):
     system = ("You are YABBAI's scoping agent. Output STRICT JSON only with keys: title, summary, "
               "deliverables (array), milestones (array of {name, outcome}), assumptions (array), price_band. No markdown.")
-    res = await route_complete(system, f"Brief: {body.brief}\nBudget: {body.budget}\nTimeline: {body.timeline}", "scope", client_data=True)
+    res = await route_complete(system, f"Brief: {body.brief}\nBudget: {body.budget}\nTimeline: {body.timeline}", "scope", data_class="business")
     return {"ok": True, "scope": _safe_json(res["content"]), "tier": res["tier"], "model": res["model"]}
 
 
@@ -717,7 +742,7 @@ class CallGuideBody(BaseModel):
 async def call_guide(body: CallGuideBody, user=Depends(require_director)):
     system = ("You are YABBAI's Caller agent. Output STRICT JSON only with keys: opener, "
               "discovery_questions (array), objections (array of {objection, response}), close. No markdown.")
-    res = await route_complete(system, f"Lead: {body.lead_name}\nCompany: {body.company}\nStage: {body.stage}\nContext: {body.context}", "callguide", client_data=True)
+    res = await route_complete(system, f"Lead: {body.lead_name}\nCompany: {body.company}\nStage: {body.stage}\nContext: {body.context}", "callguide", data_class="business")
     return {"ok": True, "guide": _safe_json(res["content"]), "tier": res["tier"], "model": res["model"]}
 
 

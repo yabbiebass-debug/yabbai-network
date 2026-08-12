@@ -54,6 +54,10 @@ DEFAULTS = {
     "yabbai_url": "",
     "yabbai_model": "llama3.2",
     "supabase_url": "https://gecwxvwziktvaiwdhzeg.supabase.co",
+    # GoldScout news scout — Tavily. Scanner is manual-only unless a positive
+    # interval is set (env GOLDSCOUT_INTERVAL_SECS). Free tier is credit-metered
+    # per month, so an accidental continuous loop would burn it fast.
+    "goldscout_interval_secs": 0,
 }
 
 
@@ -82,7 +86,19 @@ async def get_raw_settings() -> dict:
         "openrouter_model": os.environ.get("OPENROUTER_MODEL"),
         "openrouter_base_url": os.environ.get("OPENROUTER_BASE_URL"),
         "openrouter_paid_model": os.environ.get("OPENROUTER_PAID_MODEL"),
+        "tavily_api_key": os.environ.get("TAVILY_API_KEY"),
     }
+    # Integer envs (interval etc.) — coerce safely; blank/invalid keeps merged value.
+    int_env_map = {
+        "goldscout_interval_secs": "GOLDSCOUT_INTERVAL_SECS",
+    }
+    for k, env_name in int_env_map.items():
+        v = os.environ.get(env_name)
+        if v is not None and v.strip():
+            try:
+                merged[k] = max(0, int(v))
+            except ValueError:
+                pass
     for k, v in env_map.items():
         if v:
             merged[k] = v

@@ -163,3 +163,10 @@ becomes an ALLOWLIST (yabbai only) failing closed — Phase 2; Groq may be propo
 - **Verified live (preview)**: 12 real chats → nvidia; /stats free_ratio 0.9412 w/ 1 paid hit (reason "force_paid", fell_through [openrouter]); guard BLOCK demo 502 "paid guard: only 1 free tiers failed"; client-data 503 fail-closed; keyless tier tests graceful; settings renders 8 cards/6-tier active flow; post-restore routing normal.
 - **NOT yet verified** (no keys): live Cerebras/Google/OpenRouter completions + live 402 path (shares tested groq HTTP tier). **PROD STATUS: still v2.1.0 — Phase 1+2 need redeploy; check /api/ai/health shows 2.3.0.**
 - 5c (free): GoldScout → `TAVILY_API_KEY`; Gold Hunter → `COINSPOT_API_KEY` + `COINSPOT_SECRET` (read-only balance sync).
+
+## Phase 15b — Two-level data policy + groq→business (2026-08-12, user decisions)
+- `DATA_POLICY = {"confidential": {yabbai}, "business": {yabbai, groq}}`; route_complete param `client_data` → `data_class` (None/"open" = full ladder; unknown values FAIL CLOSED to confidential). scope-brief + call-guide moved to `business`. `data_class` logged per request.
+- Verified live: business scope-brief served by groq (llama-3.3-70b-versatile); confidential → 503 yabbai-only; unknown class → 503 fail-closed; open chat unaffected (nvidia).
+- Groq ZDR research (user to act): FREE on all tiers — Console → Data Controls, org-admin toggle; disables retention-dependent features (batch, fine-tuning). If user enables it, groq may be reconsidered for confidential.
+- LESSON: parallel search_replace edits to the SAME file raced twice (duplicated _safe_json fragment; reverted fail-closed block). Sequential edits per file from now on.
+- GATES BEFORE PHASE 3 (user-set): (1) prod /api/ai/health must show 2.3.0 (still 2.1.0 at last check); (2) live Test of cerebras/google/openrouter — keys are in PROD secrets only, preview needs them pasted in /settings or provided in chat.

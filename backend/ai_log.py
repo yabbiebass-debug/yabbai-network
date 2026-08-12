@@ -52,7 +52,7 @@ async def ensure_indexes():
 async def log_request(request_id, task_type, tier_requested, tier_served, model,
                       latency_ms, tokens_in, tokens_out, error, http_status,
                       fell_through_from, attempts, sensitive, paid,
-                      paid_reason=None, cost_usd=None,
+                      paid_reason=None, cost_usd=None, data_class=None,
                       prompt=None, response=None, session_id=None):
     global _write_n
     await ensure_indexes()
@@ -64,7 +64,7 @@ async def log_request(request_id, task_type, tier_requested, tier_served, model,
         "error": error, "http_status": http_status,
         "fell_through_from": fell_through_from or [], "attempts": attempts or [],
         "sensitive": bool(sensitive), "paid": bool(paid), "rating": None,
-        "paid_reason": paid_reason, "cost_usd": cost_usd,
+        "paid_reason": paid_reason, "cost_usd": cost_usd, "data_class": data_class,
         "session_id": session_id,
     })
     if not sensitive and (prompt or response):
@@ -202,6 +202,7 @@ async def stats(days=7):
             "key_cap_usd": float(os.environ.get("OPENROUTER_KEY_CAP_USD", "6.50")),
             "key_live": None,  # filled by the router (needs the key)
         },
+        "tavily": None,  # filled by the router (needs the key)
     }
 
 
