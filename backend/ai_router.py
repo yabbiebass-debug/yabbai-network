@@ -1,17 +1,27 @@
 """
-YABBAI AI surface — multi-tier routed brain.
+YABBAI AI surface — multi-tier routed brain with a constantly-learning core.
 
 Routing tiers (configurable order, set in Settings):
   • nvidia   — NVIDIA NIM free OpenAI-compatible endpoints (integrate.api.nvidia.com)
-  • emergent — Claude Sonnet via the Emergent Universal LLM key
-  • yabbai    — your YABBAI Local / Ollama box (URL + key), the self-hosted fallback
+  • groq     — Groq cloud, Llama 3.3 70B versatile (api.groq.com, free tier)
+  • grok     — xAI Grok 4.5 via the OpenAI-compatible endpoint (api.x.ai)
+  • yabbai   — your YABBAI Local / Ollama box (URL + key), the self-hosted learner
+  • emergent — Claude Sonnet via the Emergent Universal LLM key (paid, last)
 
 Each request tries the enabled tiers in order until one answers. Settings are read
 from Mongo at request time, so rotating a key never needs a restart.
+
+Learning: every successful answer from a non-YABBAI tier is recorded as an
+exemplar (yabbai_learning.py). When the YABBAI tier answers, the most relevant
+learned Q&As are injected into its system prompt so it constantly upgrades off
+what the other AIs do.
 """
 
 import os
 import json
+import time
+import asyncio
+import logging
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
@@ -24,6 +34,8 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, Strea
 
 from network_db import get_raw_settings, DEFAULTS
 from auth_router import require_director
+from yabbai_learning import (record_exchange, get_exemplars, build_learned_context,
+                             learning_report, export_jsonl)
 
 load_dotenv()
 
@@ -36,6 +48,9 @@ SYSTEM_DEFAULT = (
     "product audits, diagnostics and code. Be concise, concrete and honest. "
     "Never fabricate numbers; if data is missing, say so."
 )
+
+# tiers never allowed to see client/lead data
+CLIENT_DATA_EXCLUDED = {"groq", "grok"}
 
 
 # ── tier implementations ──────────────────────────────────────────────────────
@@ -84,29 +99,151 @@ async def _yabbai_complete(s, system, prompt):
     return content, s.get("yabbai_model") or DEFAULTS["yabbai_model"]
 
 
+# ── observability + rate-limit state (in-memory; resets on restart) ────────────
+log = logging.getLogger("ai_router")
+TIER_STATS = {}   # tier -> {requests, answered, http_429, errors, latency_ms_total}
+_COLD = {}        # tier -> unix ts until which the tier is skipped (rate-limited)
+
+
+class _RateLimited(Exception):
+    def __init__(self, retry_after=None):
+        self.retry_after = retry_after
+
+
+class _ModelNotFound(Exception):
+    def __init__(self, model):
+        self.model = model
+
+
+def _stat(t):
+    return TIER_STATS.setdefault(
+        t, {"requests": 0, "answered": 0, "http_429": 0, "errors": 0, "latency_ms_total": 0.0})
+
+
+def _parse_retry_after(v, default=30):
+    if not v:
+        return default
+    try:
+        return max(1, int(float(v)))
+    except Exception:
+        try:
+            from email.utils import parsedate_to_datetime
+            import datetime as _dt
+            dt = parsedate_to_datetime(v)
+            return max(1, int((dt - _dt.datetime.now(dt.tzinfo)).total_seconds()))
+        except Exception:
+            return default
+
+
+async def _openai_http_complete(s, system, prompt, prefix, label):
+    """Shared OpenAI-compatible HTTP tier (groq, grok). 30s timeout. On 429 ->
+    _RateLimited (caller marks the tier cold and falls through, no retry/queue).
+    On a model-not-found error, log the model and fall through via _ModelNotFound."""
+    key = s.get(f"{prefix}_api_key")
+    if not key:
+        raise RuntimeError(f"{label} API key not set")
+    base = (s.get(f"{prefix}_base_url") or DEFAULTS[f"{prefix}_base_url"]).rstrip("/")
+    model = s.get(f"{prefix}_model") or DEFAULTS[f"{prefix}_model"]
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    payload = {"model": model,
+               "messages": [{"role": "system", "content": system},
+                            {"role": "user", "content": prompt}],
+               "temperature": 0.4, "max_tokens": 1024}
+    async with httpx.AsyncClient(timeout=30.0) as c:
+        r = await c.post(f"{base}/chat/completions", json=payload, headers=headers)
+    if r.status_code == 429:
+        raise _RateLimited(r.headers.get("Retry-After"))
+    if r.status_code in (400, 404):
+        body = (r.text or "").lower()
+        if "model" in body and any(w in body for w in
+                                   ("not found", "does not exist", "decommission", "deprecat", "invalid")):
+            raise _ModelNotFound(model)
+    r.raise_for_status()
+    d = r.json()
+    return d["choices"][0]["message"]["content"], model
+
+
+async def _groq_complete(s, system, prompt):
+    return await _openai_http_complete(s, system, prompt, "groq", "Groq")
+
+
+async def _grok_complete(s, system, prompt):
+    return await _openai_http_complete(s, system, prompt, "grok", "xAI (Grok)")
+
+
+def _learn(tier, model, prompt, content, latency_ms, session_id):
+    """Fire-and-forget: record a peer-tier answer as YABBAI learning material."""
+    async def _run():
+        try:
+            await record_exchange(tier, model, prompt, content, latency_ms, session_id)
+        except Exception:
+            log.debug("learning record failed", exc_info=True)
+    asyncio.create_task(_run())
+
+
+async def _yabbai_system(system, prompt):
+    """Augment YABBAI's system prompt with the most relevant learned exemplars."""
+    try:
+        learned = build_learned_context(await get_exemplars(prompt))
+    except Exception:
+        learned = ""
+    return f"{system}\n\n{learned}" if learned else system
+
+
 def _order(s):
     order = [t for t in (s.get("route_order") or DEFAULTS["route_order"])
              if s.get(f"{t}_enabled", True)]
     return order or ["emergent"]
 
 
-async def route_complete(system, prompt, session_id="yabbai"):
+async def route_complete(system, prompt, session_id="yabbai", client_data=False):
+    """Try enabled tiers in order until one answers.
+    client_data=True excludes external free tiers (Groq/Grok) per data policy."""
     s = await get_raw_settings()
     errors = {}
     for t in _order(s):
+        if client_data and t in CLIENT_DATA_EXCLUDED:
+            errors[t] = "skipped (client-data policy)"
+            continue
+        if _COLD.get(t, 0) > time.time():
+            errors[t] = f"cold: rate-limited, {int(_COLD[t] - time.time())}s left"
+            continue
+        st = _stat(t)
+        st["requests"] += 1
+        t0 = time.time()
         try:
             if t == "emergent":
                 content, model = await _emergent_complete(s, system, prompt, session_id)
             elif t == "nvidia":
                 content, model = await _nvidia_complete(s, system, prompt)
+            elif t == "groq":
+                content, model = await _groq_complete(s, system, prompt)
+            elif t == "grok":
+                content, model = await _grok_complete(s, system, prompt)
             elif t == "yabbai":
-                content, model = await _yabbai_complete(s, system, prompt)
+                content, model = await _yabbai_complete(s, await _yabbai_system(system, prompt), prompt)
             else:
                 continue
+            latency = (time.time() - t0) * 1000
+            st["latency_ms_total"] += latency
             if content and content.strip():
+                st["answered"] += 1
+                if t != "yabbai":
+                    _learn(t, model, prompt, content, latency, session_id)
                 return {"content": content, "tier": t, "model": model}
             errors[t] = "empty response"
+        except _RateLimited as e:
+            st["http_429"] += 1
+            cold = _parse_retry_after(e.retry_after)
+            _COLD[t] = time.time() + cold
+            log.warning("%s rate-limited (429) — cold %ss, falling through", t, cold)
+            errors[t] = f"429 rate-limited (cold {cold}s)"
+        except _ModelNotFound as e:
+            st["errors"] += 1
+            log.warning("%s model not found: '%s' — falling through", t, e.model)
+            errors[t] = f"model not found: {e.model}"
         except Exception as e:
+            st["errors"] += 1
             errors[t] = str(e)[:160]
     raise HTTPException(502, {"error": "all routing tiers failed", "details": errors})
 
@@ -115,7 +252,7 @@ async def route_complete(system, prompt, session_id="yabbai"):
 @router.get("/health")
 async def health():
     s = await get_raw_settings()
-    return {"ok": True, "app": "yabbai-ai", "version": "2.1.0",
+    return {"ok": True, "app": "yabbai-ai", "version": "2.2.0",
             "route_order": _order(s),
             "key_configured": bool(EMERGENT_LLM_KEY) or bool(s.get("nvidia_api_key")) or bool(s.get("yabbai_url"))}
 
@@ -130,13 +267,48 @@ async def providers(user=Depends(require_director)):
             "nvidia":   {"enabled": s.get("nvidia_enabled", True), "model": s.get("nvidia_model"),
                          "base_url": s.get("nvidia_base_url"), "key_set": bool(s.get("nvidia_api_key")),
                          "label": "NVIDIA NIM (free)"},
-            "emergent": {"enabled": s.get("emergent_enabled", True), "model": s.get("emergent_model"),
-                         "key_set": bool(EMERGENT_LLM_KEY), "label": "Emergent · Claude"},
+            "groq":     {"enabled": s.get("groq_enabled", True), "model": s.get("groq_model"),
+                         "base_url": s.get("groq_base_url"), "key_set": bool(s.get("groq_api_key")),
+                         "label": "Groq · Llama 3.3 70B (free)"},
+            "grok":     {"enabled": s.get("grok_enabled", True), "model": s.get("grok_model"),
+                         "base_url": s.get("grok_base_url"), "key_set": bool(s.get("grok_api_key")),
+                         "label": "xAI Grok 4.5"},
             "yabbai":   {"enabled": s.get("yabbai_enabled", True), "url": s.get("yabbai_url"),
                          "model": s.get("yabbai_model"), "key_set": bool(s.get("yabbai_api_key")),
-                         "label": "YABBAI Local / Ollama"},
+                         "label": "YABBAI Local / Ollama (free, learning)"},
+            "emergent": {"enabled": s.get("emergent_enabled", True), "model": s.get("emergent_model"),
+                         "key_set": bool(EMERGENT_LLM_KEY), "label": "Emergent · Claude (paid)"},
         },
     }
+
+
+@router.get("/stats")
+async def stats(user=Depends(require_director)):
+    """Per-tier observability: which tier actually answered, not which was configured."""
+    now = time.time()
+    out = {}
+    for t, st in TIER_STATS.items():
+        n = st["requests"] or 0
+        out[t] = {"requests": st["requests"], "answered": st["answered"],
+                  "http_429": st["http_429"], "errors": st["errors"],
+                  "avg_latency_ms": round(st["latency_ms_total"] / n, 1) if n else 0.0}
+    cold = {t: int(ts - now) for t, ts in _COLD.items() if ts > now}  # seconds remaining
+    return {"ok": True, "tiers": out, "cold_seconds_remaining": cold}
+
+
+# ── learning: report back + upgrade dataset ───────────────────────────────────
+@router.get("/learning")
+async def learning(user=Depends(require_director)):
+    """What YABBAI has learned from the other tiers so far."""
+    return await learning_report()
+
+
+@router.get("/learning/export")
+async def learning_export(limit: int = 1000, user=Depends(require_director)):
+    """Fine-tune-ready JSONL of everything learned — train your own model with it."""
+    data = await export_jsonl(min(max(limit, 1), 5000))
+    return StreamingResponse(iter([data]), media_type="application/jsonl",
+                             headers={"Content-Disposition": "attachment; filename=yabbai_finetune.jsonl"})
 
 
 @router.get("/nvidia/models")
@@ -164,6 +336,10 @@ async def test_provider(body: TestBody, user=Depends(require_director)):
     try:
         if t == "nvidia":
             c, m = await _nvidia_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+        elif t == "groq":
+            c, m = await _groq_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+        elif t == "grok":
+            c, m = await _grok_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
         elif t == "emergent":
             c, m = await _emergent_complete(s, "You are a connectivity test.", "Reply with the single word: OK", "test")
         elif t == "yabbai":
@@ -197,29 +373,48 @@ async def chat_stream(body: ChatBody, user=Depends(require_director)):
         s = await get_raw_settings()
         last_err = None
         for t in _order(s):
+            if _COLD.get(t, 0) > time.time():
+                last_err = f"{t} cold (rate-limited)"
+                continue
             try:
                 if t == "nvidia":
                     stream, model = await _nvidia_complete(s, system, body.message, stream=True)
                     yield f"\u200b"  # prime
+                    acc = []
                     async for chunk in stream:
                         delta = chunk.choices[0].delta.content if chunk.choices else None
                         if delta:
+                            acc.append(delta)
                             yield delta
+                    _learn(t, model, body.message, "".join(acc), 0.0, body.session_id)
+                    return
+                if t in ("groq", "grok"):
+                    content, model = await (_groq_complete if t == "groq" else _grok_complete)(s, system, body.message)
+                    yield content or ""
+                    _learn(t, model, body.message, content or "", 0.0, body.session_id)
+                    return
+                if t == "yabbai":
+                    content, _ = await _yabbai_complete(s, await _yabbai_system(system, body.message), body.message)
+                    yield content or ""
                     return
                 if t == "emergent":
                     if not EMERGENT_LLM_KEY:
                         raise RuntimeError("Emergent key not set")
                     chat_obj = _emergent_chat(s, system, body.session_id)
+                    acc = []
                     async for ev in chat_obj.stream_message(UserMessage(text=body.message)):
                         if isinstance(ev, TextDelta):
+                            acc.append(ev.content)
                             yield ev.content
                         elif isinstance(ev, StreamDone):
                             break
+                    _learn(t, s.get("emergent_model") or DEFAULTS["emergent_model"],
+                           body.message, "".join(acc), 0.0, body.session_id)
                     return
-                if t == "yabbai":
-                    content, _ = await _yabbai_complete(s, system, body.message)
-                    yield content or ""
-                    return
+            except _RateLimited as e:
+                _COLD[t] = time.time() + _parse_retry_after(e.retry_after)
+                last_err = f"{t} 429"
+                continue
             except Exception as e:
                 last_err = str(e)
                 continue
@@ -258,7 +453,7 @@ class ScopeBody(BaseModel):
 async def scope_brief(body: ScopeBody, user=Depends(require_director)):
     system = ("You are YABBAI's scoping agent. Output STRICT JSON only with keys: title, summary, "
               "deliverables (array), milestones (array of {name, outcome}), assumptions (array), price_band. No markdown.")
-    res = await route_complete(system, f"Brief: {body.brief}\nBudget: {body.budget}\nTimeline: {body.timeline}", "scope")
+    res = await route_complete(system, f"Brief: {body.brief}\nBudget: {body.budget}\nTimeline: {body.timeline}", "scope", client_data=True)
     return {"ok": True, "scope": _safe_json(res["content"]), "tier": res["tier"], "model": res["model"]}
 
 
@@ -273,7 +468,7 @@ class CallGuideBody(BaseModel):
 async def call_guide(body: CallGuideBody, user=Depends(require_director)):
     system = ("You are YABBAI's Caller agent. Output STRICT JSON only with keys: opener, "
               "discovery_questions (array), objections (array of {objection, response}), close. No markdown.")
-    res = await route_complete(system, f"Lead: {body.lead_name}\nCompany: {body.company}\nStage: {body.stage}\nContext: {body.context}", "callguide")
+    res = await route_complete(system, f"Lead: {body.lead_name}\nCompany: {body.company}\nStage: {body.stage}\nContext: {body.context}", "callguide", client_data=True)
     return {"ok": True, "guide": _safe_json(res["content"]), "tier": res["tier"], "model": res["model"]}
 
 

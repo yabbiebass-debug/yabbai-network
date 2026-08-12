@@ -67,7 +67,7 @@
   </nav>
 
   <h1>The <em>routed brain</em> — your wiring.</h1>
-  <div class="sub">Stack your model tiers in any order. Every request walks the list top-to-bottom until one answers, so the clan never goes dark. Free NVIDIA NIM endpoints first, your own YABBAI Local / Ollama box as the self-hosted fallback, Claude in the middle.</div>
+  <div class="sub">Stack your model tiers in any order. Every request walks the list top-to-bottom until one answers, so the clan never goes dark. Free tiers first (NVIDIA, Groq Llama, xAI Grok), your YABBAI Local box next — constantly learning from every peer answer — and paid Claude last.</div>
 
   <div class="eyebrow">Active routing</div>
   <div class="card"><div class="flow" id="flow">loading…</div></div>
@@ -120,8 +120,10 @@ let loaded = false;         // guards Save until the page has hydrated
 
 const TIERS = {
   nvidia:   {label:'NVIDIA NIM', accent:'free OpenAI-compatible endpoints', icon:'▸'},
+  groq:     {label:'Groq · Llama 3.3 70B', accent:'free ultra-fast Llama inference (api.groq.com)', icon:'▸'},
+  grok:     {label:'xAI Grok 4.5', accent:'xAI Grok via api.x.ai — needs team credits', icon:'▸'},
   emergent: {label:'Emergent · Claude', accent:'Claude Sonnet via your Universal key', icon:'▸'},
-  yabbai:   {label:'YABBAI Local / Ollama', accent:'your self-hosted box — the fallback', icon:'▸'},
+  yabbai:   {label:'YABBAI Local / Ollama', accent:'your self-hosted box — learns from every peer answer', icon:'▸'},
 };
 
 async function load(){
@@ -137,9 +139,9 @@ async function load(){
     document.getElementById('flow').innerHTML = '<span style="color:var(--red)">Could not load settings — '+e+'</span>';
     return;
   }
-  order = (S.route_order && S.route_order.length) ? S.route_order.slice() : ['nvidia','emergent','yabbai'];
-  // ensure all three present
-  ['nvidia','emergent','yabbai'].forEach(t=>{ if(!order.includes(t)) order.push(t); });
+  order = (S.route_order && S.route_order.length) ? S.route_order.slice() : ['nvidia','groq','grok','yabbai','emergent'];
+  order = order.filter(t=>TIERS[t]);
+  ['nvidia','groq','grok','yabbai','emergent'].forEach(t=>{ if(!order.includes(t)) order.push(t); });
   render();
 }
 
@@ -162,6 +164,20 @@ function render(){
   if(sb) sb.disabled = false;
   renderSupabase();
   loadRecovery();
+  loadLearning();
+}
+
+async function loadLearning(){
+  const el = $('yb_learn');
+  if(!el) return;
+  try{
+    const d = await fetch(API+'/api/ai/learning',{credentials:'include'}).then(r=>r.json());
+    const teachers = Object.entries(d.teachers||{}).map(([t,v])=>`${t} ×${v.learned}`).join(' · ');
+    el.className = 'test ' + (d.exemplars>0 ? 'ok' : '');
+    el.textContent = d.exemplars>0
+      ? `🧠 learned ${d.exemplars} exchanges — teachers: ${teachers}`
+      : '🧠 brain empty — it fills up as the other tiers answer';
+  }catch(e){ el.className='test'; el.textContent=''; }
 }
 
 async function loadRecovery(){
@@ -228,7 +244,7 @@ async function supabaseTest(){
 function renderFlow(){
   const active = order.filter(t=>S[t+'_enabled'] !== false);
   document.getElementById('flow').innerHTML = active.length
-    ? active.map((t,i)=>`<span class="tg"><b>${i+1}</b> ${TIERS[t].label}</span>`).join('<span class="arrow">→</span>')
+    ? active.map((t,i)=>`<span class="tg"><b>${i+1}</b> ${(TIERS[t]||{label:t}).label}</span>`).join('<span class="arrow">→</span>')
     : '<span style="color:var(--red)">No tiers enabled — the brain has nothing to call.</span>';
 }
 
@@ -261,6 +277,26 @@ function tierBody(t, idx, enabled){
     </div>
     <div class="test" id="test_nvidia"></div>
     <div class="hint">Get a free key at <b>build.nvidia.com</b> → any model → "Get API Key". Save the key first, then "Load free models".</div>`;
+  if(t==='groq') return head + `
+    <label>Groq API key</label>
+    <input type="password" id="groq_api_key" placeholder="${secretSet('groq_api_key')?'•••••••• (saved — leave blank to keep)':'gsk_...'}" data-testid="groq-key">
+    <div class="twocol">
+      <div><label>Base URL</label><input id="groq_base_url" value="${esc(S.groq_base_url||'https://api.groq.com/openai/v1')}"></div>
+      <div><label>Model</label><input id="groq_model" value="${esc(S.groq_model||'llama-3.3-70b-versatile')}"></div>
+    </div>
+    <div class="row"><button class="btn sm green" data-test="groq">Test</button></div>
+    <div class="test" id="test_groq"></div>
+    <div class="hint">Free key at <b>console.groq.com</b> → API Keys. Client/lead data never routes here.</div>`;
+  if(t==='grok') return head + `
+    <label>xAI API key</label>
+    <input type="password" id="grok_api_key" placeholder="${secretSet('grok_api_key')?'•••••••• (saved — leave blank to keep)':'xai-...'}" data-testid="grok-key">
+    <div class="twocol">
+      <div><label>Base URL</label><input id="grok_base_url" value="${esc(S.grok_base_url||'https://api.x.ai/v1')}"></div>
+      <div><label>Model</label><input id="grok_model" value="${esc(S.grok_model||'grok-4.5')}"></div>
+    </div>
+    <div class="row"><button class="btn sm green" data-test="grok">Test</button></div>
+    <div class="test" id="test_grok"></div>
+    <div class="hint">Key from <b>console.x.ai</b> — the team needs credits/licenses before Grok answers. Client/lead data never routes here.</div>`;
   if(t==='emergent') return head + `
     <div class="twocol">
       <div><label>Model</label><input id="emergent_model" value="${esc(S.emergent_model||'claude-sonnet-4-6')}"></div>
@@ -279,11 +315,14 @@ function tierBody(t, idx, enabled){
     <input type="password" id="yabbai_api_key" placeholder="${secretSet('yabbai_api_key')?'•••••••• (saved — leave blank to keep)':'your YABBAI remote key'}" data-testid="yabbai-key">
     <div class="row"><button class="btn sm green" data-test="yabbai">Test</button></div>
     <div class="test" id="test_yabbai"></div>
-    <div class="hint">Points at your YABBAI Local / Ollama server (<code>/api/chat</code>). Use a Cloudflare-tunnel URL if it's on your machine.</div>`;
+    <div class="test" id="yb_learn" data-testid="yabbai-learning-status"></div>
+    <div class="hint">Points at your YABBAI Local / Ollama server (<code>/api/chat</code>). Use a Cloudflare-tunnel URL if it's on your machine. YABBAI records every answer from the peer tiers and injects the most relevant ones back into its own replies — <a href="/api/ai/learning/export" style="color:var(--purple)">export the brain as JSONL</a> to fine-tune your local model.</div>`;
 }
 
 function keyOk(t){
   if(t==='nvidia') return secretSet('nvidia_api_key');
+  if(t==='groq') return secretSet('groq_api_key');
+  if(t==='grok') return secretSet('grok_api_key');
   if(t==='emergent') return S.secrets_set && true; // emergent key server-side
   if(t==='yabbai') return !!(S.yabbai_url);
   return false;
@@ -296,15 +335,23 @@ function collect(){
   const p = {
     route_order: order,
     nvidia_enabled: S.nvidia_enabled!==false,
+    groq_enabled: S.groq_enabled!==false,
+    grok_enabled: S.grok_enabled!==false,
     emergent_enabled: S.emergent_enabled!==false,
     yabbai_enabled: S.yabbai_enabled!==false,
     nvidia_base_url: g('nvidia_base_url'),
     nvidia_model: g('nvidia_model'),
+    groq_base_url: g('groq_base_url'),
+    groq_model: g('groq_model'),
+    grok_base_url: g('grok_base_url'),
+    grok_model: g('grok_model'),
     emergent_model: g('emergent_model'),
     yabbai_url: g('yabbai_url'),
     yabbai_model: g('yabbai_model'),
   };
   const nk = g('nvidia_api_key'); if(nk) p.nvidia_api_key = nk;
+  const gq = g('groq_api_key'); if(gq) p.groq_api_key = gq;
+  const gk = g('grok_api_key'); if(gk) p.grok_api_key = gk;
   const yk = g('yabbai_api_key'); if(yk) p.yabbai_api_key = yk;
   return p;
 }
