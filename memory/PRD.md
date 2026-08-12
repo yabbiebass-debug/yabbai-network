@@ -153,9 +153,13 @@ becomes an ALLOWLIST (yabbai only) failing closed — Phase 2; Groq may be propo
 - .env commit guard appended to `.git/hooks/pre-commit` (blocks staged .env*, allows .env.example) — verified blocking.
 - Verified live: real nvidia-served request logged w/ tokens 144/90, rating written, sensitive request
   skipped bodies, TTL index 90d, hub tile renders 100% free / 0 paid, console rate flow e2e green.
-- NEXT (user-gated checkpoints): Phase 2 free-first ladder (add cerebras/google/openrouter tiers, grok
-  disabled default, paid guard ≥3 free tries or force_paid, allowlist client-data, OpenRouter $6.50 cap
-  spend tracking + 402→fallthrough) · Phase 3 Gold Hunter mount at /api/goldhunter (lifespan gotcha:
-  Mount doesn't fire sub-app startup; swarm behind env flag; pin DB_NAME) · Phase 4 /api/ai/diagnose
-  read-only self-diagnosis + hourly run (env-gated single runner, include /api/realm in sweep) ·
-  Phase 5a privacy lane / 5b dual-answer / 5c key names (Tavily, CoinSpot — fold into 2/3 free).
+## Phase 15 — Build-spec PHASE 2: free-first ladder + paid guard (2026-08-12)
+- **New canonical route order**: nvidia → groq → cerebras → google → openrouter → grok(dormant) → yabbai(off) → emergent (PAID, guarded, last). Cerebras/Google/OpenRouter share `_openai_http_complete`; `HTTP_TIERS` dict drives dispatch/test/stream. Self-heal resets stale saved orders.
+- **PAID GUARD**: emergent reachable only if 3+ free tiers were tried-and-failed (cold + key-not-set count; client-data skips don't), OR request has `force_paid:true` (ChatBody field). Every paid hit logged with `paid_reason` ("force_paid" | "fallback after free failures: …" | "openrouter paid model: …") + log.warning.
+- **Client-data ALLOWLIST** (replaces blocklist, user decision): `CLIENT_DATA_ALLOWED={"yabbai"}` — default deny, fails closed with 503 + clear message. CONSEQUENCE: /ai/scope-brief + /ai/call-guide FAIL until yabbai is up (by design). Groq NOT added (citation given to user, decision pending).
+- **OpenRouter**: `:free` enforced unless force_paid (+optional OPENROUTER_PAID_MODEL); `usage.include` → real per-request `cost_usd` logged; /stats has `openrouter` block (window/total spend, OPENROUTER_KEY_CAP_USD default 6.50, live /key probe cached 5min, null on fail). 402 + 403-credit-sniff → `_PaymentRequired` → cold 900s + fallthrough (mirrors 429; never a dead tier), in both /chat and /chat/stream.
+- **Env (final names)**: CEREBRAS_API_KEY/MODEL/BASE_URL (default gpt-oss-120b), GOOGLE_AI_KEY/MODEL/BASE_URL (default gemini-2.5-flash, OpenAI-compat endpoint), OPENROUTER_API_KEY/MODEL/BASE_URL/PAID_MODEL/KEY_CAP_USD (default meta-llama/llama-3.3-70b-instruct:free); boolean overrides {NVIDIA,GROQ,CEREBRAS,GOOGLE_AI,OPENROUTER,XAI,EMERGENT}_ENABLED + YABBAI_TIER_ENABLED (grok+yabbai default FALSE in DEFAULTS; preview Mongo doc reset; PROD doc may still have them true → user must set XAI_ENABLED=false + YABBAI_TIER_ENABLED=false in prod secrets or untick in /settings).
+- Settings UI: 8 tier cards (generic card for cerebras/google/openrouter w/ key/base/model/test, data-testids `{tier}-key`), CANONICAL_ORDER, collect() covers all tiers (grok/yabbai `===true` fail-closed). health version bump → **2.3.0** (decisive prod-deploy check).
+- **Verified live (preview)**: 12 real chats → nvidia; /stats free_ratio 0.9412 w/ 1 paid hit (reason "force_paid", fell_through [openrouter]); guard BLOCK demo 502 "paid guard: only 1 free tiers failed"; client-data 503 fail-closed; keyless tier tests graceful; settings renders 8 cards/6-tier active flow; post-restore routing normal.
+- **NOT yet verified** (no keys): live Cerebras/Google/OpenRouter completions + live 402 path (shares tested groq HTTP tier). **PROD STATUS: still v2.1.0 — Phase 1+2 need redeploy; check /api/ai/health shows 2.3.0.**
+- 5c (free): GoldScout → `TAVILY_API_KEY`; Gold Hunter → `COINSPOT_API_KEY` + `COINSPOT_SECRET` (read-only balance sync).

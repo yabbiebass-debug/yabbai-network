@@ -19,24 +19,38 @@ SETTINGS_ID = "network_settings"
 # secret fields are stored but never echoed back to the client
 SECRET_FIELDS = {
     "nvidia_api_key", "yabbai_api_key", "groq_api_key", "grok_api_key",
+    "cerebras_api_key", "google_api_key", "openrouter_api_key",
     "supabase_service_key", "stripe_secret_key", "paypal_secret",
     "google_client_secret", "tavily_api_key",
 }
 
 DEFAULTS = {
-    "route_order": ["nvidia", "groq", "grok", "yabbai", "emergent"],
+    # Free-first ladder; paid emergent tier last, always. grok kept but dormant
+    # (enable via XAI_ENABLED); yabbai (laptop) optional + disabled by default.
+    "route_order": ["nvidia", "groq", "cerebras", "google", "openrouter",
+                    "grok", "yabbai", "emergent"],
     "nvidia_enabled": True,
     "nvidia_base_url": "https://integrate.api.nvidia.com/v1",
     "nvidia_model": "meta/llama-3.3-70b-instruct",
     "groq_enabled": True,
     "groq_base_url": "https://api.groq.com/openai/v1",
     "groq_model": "llama-3.3-70b-versatile",
-    "grok_enabled": True,
+    "cerebras_enabled": True,
+    "cerebras_base_url": "https://api.cerebras.ai/v1",
+    "cerebras_model": "gpt-oss-120b",
+    "google_enabled": True,
+    "google_base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "google_model": "gemini-2.5-flash",
+    "openrouter_enabled": True,
+    "openrouter_base_url": "https://openrouter.ai/api/v1",
+    "openrouter_model": "meta-llama/llama-3.3-70b-instruct:free",
+    "openrouter_paid_model": "",
+    "grok_enabled": False,
     "grok_base_url": "https://api.x.ai/v1",
     "grok_model": "grok-4.5",
     "emergent_enabled": True,
     "emergent_model": "claude-sonnet-4-6",
-    "yabbai_enabled": True,
+    "yabbai_enabled": False,
     "yabbai_url": "",
     "yabbai_model": "llama3.2",
     "supabase_url": "https://gecwxvwziktvaiwdhzeg.supabase.co",
@@ -58,12 +72,37 @@ async def get_raw_settings() -> dict:
         "grok_api_key": os.environ.get("XAI_API_KEY"),
         "grok_model": os.environ.get("XAI_MODEL"),
         "grok_base_url": os.environ.get("XAI_BASE_URL"),
+        "cerebras_api_key": os.environ.get("CEREBRAS_API_KEY"),
+        "cerebras_model": os.environ.get("CEREBRAS_MODEL"),
+        "cerebras_base_url": os.environ.get("CEREBRAS_BASE_URL"),
+        "google_api_key": os.environ.get("GOOGLE_AI_KEY"),
+        "google_model": os.environ.get("GOOGLE_AI_MODEL"),
+        "google_base_url": os.environ.get("GOOGLE_AI_BASE_URL"),
+        "openrouter_api_key": os.environ.get("OPENROUTER_API_KEY"),
+        "openrouter_model": os.environ.get("OPENROUTER_MODEL"),
+        "openrouter_base_url": os.environ.get("OPENROUTER_BASE_URL"),
+        "openrouter_paid_model": os.environ.get("OPENROUTER_PAID_MODEL"),
     }
     for k, v in env_map.items():
         if v:
             merged[k] = v
+    # Boolean env overrides win over saved settings (set "true"/"false").
+    bool_env_map = {
+        "nvidia_enabled": "NVIDIA_ENABLED",
+        "groq_enabled": "GROQ_ENABLED",
+        "cerebras_enabled": "CEREBRAS_ENABLED",
+        "google_enabled": "GOOGLE_AI_ENABLED",
+        "openrouter_enabled": "OPENROUTER_ENABLED",
+        "grok_enabled": "XAI_ENABLED",
+        "yabbai_enabled": "YABBAI_TIER_ENABLED",
+        "emergent_enabled": "EMERGENT_ENABLED",
+    }
+    for k, env_name in bool_env_map.items():
+        v = os.environ.get(env_name)
+        if v is not None:
+            merged[k] = v.strip().lower() in ("1", "true", "yes", "on")
     # Self-heal: any saved route_order missing a tier (or holding stale ids)
-    # resets to the canonical five-tier order.
+    # resets to the canonical free-first order.
     valid = DEFAULTS["route_order"]
     order = [t for t in (merged.get("route_order") or []) if t in valid]    
     if set(order) != set(valid):

@@ -1,12 +1,21 @@
 """
 YABBAI AI surface — multi-tier routed brain with a constantly-learning core.
 
-Routing tiers (configurable order, set in Settings):
-  • nvidia   — NVIDIA NIM free OpenAI-compatible endpoints (integrate.api.nvidia.com)
-  • groq     — Groq cloud, Llama 3.3 70B versatile (api.groq.com, free tier)
-  • grok     — xAI Grok 4.5 via the OpenAI-compatible endpoint (api.x.ai)
-  • yabbai   — your YABBAI Local / Ollama box (URL + key), the self-hosted learner
-  • emergent — Claude Sonnet via the Emergent Universal LLM key (paid, last)
+Routing tiers (free-first ladder; paid tier last, always):
+  • nvidia     — NVIDIA NIM free OpenAI-compatible endpoints (integrate.api.nvidia.com)
+  • groq       — Groq cloud, Llama 3.3 70B versatile (api.groq.com, free tier)
+  • cerebras   — Cerebras free tier, ~1M tokens/day (api.cerebras.ai)
+  • google     — Google AI Studio free tier via the OpenAI-compatible endpoint
+  • openrouter — OpenRouter :free variants by default; paid models only on force_paid
+  • grok       — xAI Grok (api.x.ai) — kept in code, DORMANT by default (XAI_ENABLED)
+  • yabbai     — your YABBAI Local / Ollama box — optional, disabled by default
+  • emergent   — Claude via the Emergent Universal LLM key (PAID, guarded, last)
+
+PAID GUARD: a request only reaches emergent if 3+ free tiers were tried and failed,
+or it is explicitly flagged force_paid. Every paid hit is logged with its reason.
+
+CLIENT DATA: allowlist, default DENY. Only the yabbai tier may see client/lead data;
+if it is unavailable the request FAILS with a clear message — never a silent fallback.
 
 Each request tries the enabled tiers in order until one answers. Settings are read
 from Mongo at request time, so rotating a key never needs a restart.
@@ -51,8 +60,9 @@ SYSTEM_DEFAULT = (
     "Never fabricate numbers; if data is missing, say so."
 )
 
-# tiers never allowed to see client/lead data
-CLIENT_DATA_EXCLUDED = {"groq", "grok"}
+# Client-data ALLOWLIST — default DENY, fails closed. Only tiers the Director has
+# explicitly verified may see client/lead data. Never extended without approval.
+CLIENT_DATA_ALLOWED = {"yabbai"}
 
 
 # ── tier implementations ──────────────────────────────────────────────────────
@@ -119,6 +129,14 @@ class _ModelNotFound(Exception):
         self.model = model
 
 
+class _PaymentRequired(Exception):
+    """402 / insufficient-credit / key-cap. Falls through like a 429 — never a dead tier."""
+    pass
+
+
+PAYMENT_COLD_S = 900  # credit exhaustion is durable; don't hammer for 15 min
+
+
 def _stat(t):
     return TIER_STATS.setdefault(
         t, {"requests": 0, "answered": 0, "http_429": 0, "errors": 0, "latency_ms_total": 0.0})
@@ -139,24 +157,33 @@ def _parse_retry_after(v, default=30):
             return default
 
 
-async def _openai_http_complete(s, system, prompt, prefix, label):
-    """Shared OpenAI-compatible HTTP tier (groq, grok). 30s timeout. On 429 ->
-    _RateLimited (caller marks the tier cold and falls through, no retry/queue).
-    On a model-not-found error, log the model and fall through via _ModelNotFound."""
+async def _openai_http_complete(s, system, prompt, prefix, label, model_override=None, extra_payload=None):
+    """Shared OpenAI-compatible HTTP tier (groq, grok, cerebras, google, openrouter).
+    30s timeout. 429 -> _RateLimited (cold + fallthrough, no retry/queue).
+    402 / credit-exhausted -> _PaymentRequired (cold + fallthrough, like a 429).
+    Model-not-found -> _ModelNotFound (log the name, fall through)."""
     key = s.get(f"{prefix}_api_key")
     if not key:
         raise RuntimeError(f"{label} API key not set")
     base = (s.get(f"{prefix}_base_url") or DEFAULTS[f"{prefix}_base_url"]).rstrip("/")
-    model = s.get(f"{prefix}_model") or DEFAULTS[f"{prefix}_model"]
+    model = model_override or s.get(f"{prefix}_model") or DEFAULTS[f"{prefix}_model"]
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     payload = {"model": model,
                "messages": [{"role": "system", "content": system},
                             {"role": "user", "content": prompt}],
                "temperature": 0.4, "max_tokens": 1024}
+    if extra_payload:
+        payload.update(extra_payload)
     async with httpx.AsyncClient(timeout=30.0) as c:
         r = await c.post(f"{base}/chat/completions", json=payload, headers=headers)
     if r.status_code == 429:
         raise _RateLimited(r.headers.get("Retry-After"))
+    if r.status_code == 402:
+        raise _PaymentRequired((r.text or "")[:160])
+    if r.status_code == 403:
+        body_l = (r.text or "").lower()
+        if any(w in body_l for w in ("credit", "quota", "billing", "insufficient")):
+            raise _PaymentRequired((r.text or "")[:160])
     if r.status_code in (400, 404):
         body = (r.text or "").lower()
         if "model" in body and any(w in body for w in
@@ -165,19 +192,41 @@ async def _openai_http_complete(s, system, prompt, prefix, label):
     r.raise_for_status()
     d = r.json()
     u = d.get("usage") or {}
-    usage = {"in": u.get("prompt_tokens"), "out": u.get("completion_tokens")} if u else None
+    usage = {"in": u.get("prompt_tokens"), "out": u.get("completion_tokens"),
+             "cost": u.get("cost")} if u else None
     return d["choices"][0]["message"]["content"], model, usage
 
 
-async def _groq_complete(s, system, prompt):
-    return await _openai_http_complete(s, system, prompt, "groq", "Groq")
+HTTP_TIERS = {"groq": "Groq", "grok": "xAI (Grok)", "cerebras": "Cerebras",
+              "google": "Google AI Studio"}
 
 
-async def _grok_complete(s, system, prompt):
-    return await _openai_http_complete(s, system, prompt, "grok", "xAI (Grok)")
+async def _openrouter_complete(s, system, prompt, force_paid=False):
+    """OpenRouter — :free variants by default. A paid model is used ONLY when the
+    request is explicitly force_paid (never a silent default). usage.include=true
+    returns the real per-request cost for spend tracking against the key cap."""
+    model = s.get("openrouter_model") or DEFAULTS["openrouter_model"]
+    if force_paid and s.get("openrouter_paid_model"):
+        model = s["openrouter_paid_model"]
+    elif ":free" not in model:
+        log.warning("openrouter model '%s' is not :free and request is not force_paid — "
+                    "using the default free model", model)
+        model = DEFAULTS["openrouter_model"]
+    return await _openai_http_complete(s, system, prompt, "openrouter", "OpenRouter",
+                                       model_override=model,
+                                       extra_payload={"usage": {"include": True}})
 
 
 PAID_TIERS = {"emergent"}
+
+
+def _free_failures(attempts):
+    """Free tiers that were tried and failed (cold + key-not-set count; client-data
+    policy skips do not — those tiers were never candidates)."""
+    return [a["tier"] for a in attempts
+            if a["tier"] not in PAID_TIERS and not a.get("ok")
+            and not str(a.get("error") or "").startswith("client-data")
+            and str(a.get("error") or "") != "paid guard"]
 
 
 def _http_status_of(e):
@@ -221,10 +270,11 @@ def _order(s):
 
 
 async def route_complete(system, prompt, session_id="yabbai", client_data=False,
-                         task_type=None, sensitive=False):
-    """Try enabled tiers in order until one answers.
-    client_data=True excludes external free tiers (Groq/Grok) per data policy.
-    Every request is durably logged to Mongo (ai_log.py) with its fallthrough trail."""
+                         task_type=None, sensitive=False, force_paid=False):
+    """Walk the free-first ladder until a tier answers.
+    client_data=True: allowlist only (yabbai) — default deny, fails closed.
+    Paid guard: emergent only after 3+ free tiers failed, or force_paid.
+    Every request is durably logged (ai_log.py) with its fallthrough trail."""
     s = await get_raw_settings()
     order = _order(s)
     errors = {}
@@ -233,11 +283,20 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
     rid = uuid.uuid4().hex
     task = task_type or session_id
     for t in order:
-        if client_data and t in CLIENT_DATA_EXCLUDED:
-            errors[t] = "skipped (client-data policy)"
+        if client_data and t not in CLIENT_DATA_ALLOWED:
+            errors[t] = "skipped (client-data allowlist: yabbai only)"
             attempts.append({"tier": t, "ok": False, "skipped": True,
                              "error": "client-data policy", "http_status": None, "latency_ms": None})
             continue
+        if t in PAID_TIERS and not force_paid:
+            ff = _free_failures(attempts)
+            if len(ff) < 3:
+                msg = f"paid guard: only {len(ff)} free tiers failed (need 3+ or force_paid)"
+                errors[t] = msg
+                attempts.append({"tier": t, "ok": False, "skipped": True, "error": "paid guard",
+                                 "http_status": None, "latency_ms": None})
+                log.warning("emergent blocked by paid guard (%s free failures)", len(ff))
+                continue
         if _COLD.get(t, 0) > time.time():
             errors[t] = f"cold: rate-limited, {int(_COLD[t] - time.time())}s left"
             attempts.append({"tier": t, "ok": False, "skipped": True,
@@ -251,10 +310,10 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
                 content, model, usage = await _emergent_complete(s, system, prompt, session_id)
             elif t == "nvidia":
                 content, model, usage = await _nvidia_complete(s, system, prompt)
-            elif t == "groq":
-                content, model, usage = await _groq_complete(s, system, prompt)
-            elif t == "grok":
-                content, model, usage = await _grok_complete(s, system, prompt)
+            elif t == "openrouter":
+                content, model, usage = await _openrouter_complete(s, system, prompt, force_paid)
+            elif t in HTTP_TIERS:
+                content, model, usage = await _openai_http_complete(s, system, prompt, t, HTTP_TIERS[t])
             elif t == "yabbai":
                 content, model, usage = await _yabbai_complete(s, await _yabbai_system(system, prompt), prompt)
             else:
@@ -267,11 +326,22 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
                                  "http_status": 200, "latency_ms": round(latency, 1)})
                 if t != "yabbai":
                     _learn(t, model, prompt, content, latency, session_id)
+                cost = (usage or {}).get("cost")
+                paid = t in PAID_TIERS or bool(cost)
+                paid_reason = None
+                if t in PAID_TIERS:
+                    paid_reason = ("force_paid" if force_paid else
+                                   "fallback after free failures: " + ",".join(_free_failures(attempts)))
+                elif cost:
+                    paid_reason = f"openrouter paid model: {model}"
+                if paid:
+                    log.warning("PAID tier hit: %s (%s) — %s", t, model, paid_reason)
                 _log_req(request_id=rid, task_type=task, tier_requested=order[0],
                          tier_served=t, model=model, latency_ms=round(latency, 1),
                          tokens_in=(usage or {}).get("in"), tokens_out=(usage or {}).get("out"),
                          error=None, http_status=200, fell_through_from=list(fell_through),
-                         attempts=attempts, sensitive=sensitive, paid=t in PAID_TIERS,
+                         attempts=attempts, sensitive=sensitive, paid=paid,
+                         paid_reason=paid_reason, cost_usd=cost,
                          prompt=prompt, response=content, session_id=session_id)
                 return {"content": content, "tier": t, "model": model, "request_id": rid}
             errors[t] = "empty response"
@@ -288,6 +358,16 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
             attempts.append({"tier": t, "ok": False, "skipped": False,
                              "error": f"429 rate-limited (cold {cold}s)", "http_status": 429,
                              "latency_ms": round((time.time() - t0) * 1000, 1)})
+        except _PaymentRequired as e:
+            st["errors"] += 1
+            _COLD[t] = time.time() + PAYMENT_COLD_S
+            log.warning("%s insufficient credit (402-class) — cold %ss, falling through: %s",
+                        t, PAYMENT_COLD_S, str(e)[:120])
+            errors[t] = f"insufficient credit (cold {PAYMENT_COLD_S}s)"
+            fell_through.append(t)
+            attempts.append({"tier": t, "ok": False, "skipped": False,
+                             "error": f"402 insufficient credit: {str(e)[:100]}", "http_status": 402,
+                             "latency_ms": round((time.time() - t0) * 1000, 1)})
         except _ModelNotFound as e:
             st["errors"] += 1
             log.warning("%s model not found: '%s' — falling through", t, e.model)
@@ -303,6 +383,15 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
             attempts.append({"tier": t, "ok": False, "skipped": False, "error": str(e)[:160],
                              "http_status": _http_status_of(e),
                              "latency_ms": round((time.time() - t0) * 1000, 1)})
+    if client_data:
+        msg = ("client-data request failed: no allowlisted tier available (yabbai local "
+               "offline or disabled). External tiers are never used for client data.")
+        _log_req(request_id=rid, task_type=task, tier_requested=order[0] if order else None,
+                 tier_served=None, model=None, latency_ms=None, tokens_in=None, tokens_out=None,
+                 error=msg[:160], http_status=503, fell_through_from=list(fell_through),
+                 attempts=attempts, sensitive=sensitive, paid=False,
+                 prompt=prompt, response=None, session_id=session_id)
+        raise HTTPException(503, {"error": msg, "details": errors})
     _log_req(request_id=rid, task_type=task, tier_requested=order[0] if order else None,
              tier_served=None, model=None, latency_ms=None, tokens_in=None, tokens_out=None,
              error="all routing tiers failed", http_status=502,
@@ -315,7 +404,7 @@ async def route_complete(system, prompt, session_id="yabbai", client_data=False,
 @router.get("/health")
 async def health():
     s = await get_raw_settings()
-    return {"ok": True, "app": "yabbai-ai", "version": "2.2.0",
+    return {"ok": True, "app": "yabbai-ai", "version": "2.3.0",
             "route_order": _order(s),
             "key_configured": bool(EMERGENT_LLM_KEY) or bool(s.get("nvidia_api_key")) or bool(s.get("yabbai_url"))}
 
@@ -333,9 +422,18 @@ async def providers(user=Depends(require_director)):
             "groq":     {"enabled": s.get("groq_enabled", True), "model": s.get("groq_model"),
                          "base_url": s.get("groq_base_url"), "key_set": bool(s.get("groq_api_key")),
                          "label": "Groq · Llama 3.3 70B (free)"},
-            "grok":     {"enabled": s.get("grok_enabled", True), "model": s.get("grok_model"),
+            "cerebras": {"enabled": s.get("cerebras_enabled", True), "model": s.get("cerebras_model"),
+                         "base_url": s.get("cerebras_base_url"), "key_set": bool(s.get("cerebras_api_key")),
+                         "label": "Cerebras (free, ~1M tok/day)"},
+            "google":   {"enabled": s.get("google_enabled", True), "model": s.get("google_model"),
+                         "base_url": s.get("google_base_url"), "key_set": bool(s.get("google_api_key")),
+                         "label": "Google AI Studio (free tier)"},
+            "openrouter": {"enabled": s.get("openrouter_enabled", True), "model": s.get("openrouter_model"),
+                         "base_url": s.get("openrouter_base_url"), "key_set": bool(s.get("openrouter_api_key")),
+                         "label": "OpenRouter · :free variants"},
+            "grok":     {"enabled": s.get("grok_enabled", False), "model": s.get("grok_model"),
                          "base_url": s.get("grok_base_url"), "key_set": bool(s.get("grok_api_key")),
-                         "label": "xAI Grok 4.5"},
+                         "label": "xAI Grok (dormant — enable via XAI_ENABLED)"},
             "yabbai":   {"enabled": s.get("yabbai_enabled", True), "url": s.get("yabbai_url"),
                          "model": s.get("yabbai_model"), "key_set": bool(s.get("yabbai_api_key")),
                          "label": "YABBAI Local / Ollama (free, learning)"},
@@ -348,11 +446,15 @@ async def providers(user=Depends(require_director)):
 @router.get("/stats")
 async def stats(days: int = 7, user=Depends(require_director)):
     """Durable per-tier observability from Mongo: served/429s/errors/latency/rating,
-    paid-tier hits and the free-vs-paid ratio. Survives restarts."""
+    paid-tier hits, free-vs-paid ratio, and OpenRouter spend vs its key cap."""
     data = await ai_log.stats(min(max(days, 1), 90))
     now = time.time()
     data["cold_seconds_remaining"] = {t: int(ts - now) for t, ts in _COLD.items() if ts > now}
     data["storage"] = await ai_log.storage_status()
+    s = await get_raw_settings()
+    data["openrouter"]["key_live"] = await ai_log.openrouter_key_status(
+        s.get("openrouter_api_key"),
+        s.get("openrouter_base_url") or DEFAULTS["openrouter_base_url"])
     data["ok"] = True
     return data
 
@@ -412,10 +514,10 @@ async def test_provider(body: TestBody, user=Depends(require_director)):
     try:
         if t == "nvidia":
             c, m, _u = await _nvidia_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
-        elif t == "groq":
-            c, m, _u = await _groq_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
-        elif t == "grok":
-            c, m, _u = await _grok_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+        elif t == "openrouter":
+            c, m, _u = await _openrouter_complete(s, "You are a connectivity test.", "Reply with the single word: OK")
+        elif t in HTTP_TIERS:
+            c, m, _u = await _openai_http_complete(s, "You are a connectivity test.", "Reply with the single word: OK", t, HTTP_TIERS[t])
         elif t == "emergent":
             c, m, _u = await _emergent_complete(s, "You are a connectivity test.", "Reply with the single word: OK", "test")
         elif t == "yabbai":
@@ -433,12 +535,14 @@ class ChatBody(BaseModel):
     session_id: str = "yabbai-chat"
     system: str | None = None
     sensitive: bool = False
+    force_paid: bool = False
 
 
 @router.post("/chat")
 async def chat(body: ChatBody, user=Depends(require_director)):
     res = await route_complete(body.system or SYSTEM_DEFAULT, body.message, body.session_id,
-                               task_type="chat", sensitive=body.sensitive)
+                               task_type="chat", sensitive=body.sensitive,
+                               force_paid=body.force_paid)
     return {"ok": True, "type": "message", "content": res["content"],
             "tier": res["tier"], "model": res["model"], "request_id": res["request_id"]}
 
@@ -459,11 +563,22 @@ async def chat_stream(body: ChatBody, user=Depends(require_director)):
             latency = round((time.time() - t0) * 1000, 1)
             attempts.append({"tier": t, "ok": True, "skipped": False, "error": None,
                              "http_status": 200, "latency_ms": latency})
+            cost = (usage or {}).get("cost")
+            paid = t in PAID_TIERS or bool(cost)
+            paid_reason = None
+            if t in PAID_TIERS:
+                paid_reason = ("force_paid" if body.force_paid else
+                               "fallback after free failures: " + ",".join(_free_failures(attempts)))
+            elif cost:
+                paid_reason = f"openrouter paid model: {model}"
+            if paid:
+                log.warning("PAID tier hit (stream): %s (%s) — %s", t, model, paid_reason)
             _log_req(request_id=rid, task_type="chat", tier_requested=order[0] if order else None,
                      tier_served=t, model=model, latency_ms=latency,
                      tokens_in=(usage or {}).get("in"), tokens_out=(usage or {}).get("out"),
                      error=None, http_status=200, fell_through_from=list(fell),
-                     attempts=attempts, sensitive=body.sensitive, paid=t in PAID_TIERS,
+                     attempts=attempts, sensitive=body.sensitive, paid=paid,
+                     paid_reason=paid_reason, cost_usd=cost,
                      prompt=body.message, response=content, session_id=body.session_id)
 
         def _fail(t, err, status, t0):
@@ -473,6 +588,14 @@ async def chat_stream(body: ChatBody, user=Depends(require_director)):
                              "latency_ms": round((time.time() - t0) * 1000, 1)})
 
         for t in order:
+            if t in PAID_TIERS and not body.force_paid:
+                ff = _free_failures(attempts)
+                if len(ff) < 3:
+                    last_err = f"{t} blocked by paid guard ({len(ff)} free failures, need 3+)"
+                    attempts.append({"tier": t, "ok": False, "skipped": True, "error": "paid guard",
+                                     "http_status": None, "latency_ms": None})
+                    log.warning("emergent blocked by paid guard in stream (%s free failures)", len(ff))
+                    continue
             if _COLD.get(t, 0) > time.time():
                 last_err = f"{t} cold (rate-limited)"
                 attempts.append({"tier": t, "ok": False, "skipped": True,
@@ -493,8 +616,11 @@ async def chat_stream(body: ChatBody, user=Depends(require_director)):
                     _learn(t, model, body.message, content, 0.0, body.session_id)
                     _ok(t, model, content, t0)
                     return
-                if t in ("groq", "grok"):
-                    content, model, usage = await (_groq_complete if t == "groq" else _grok_complete)(s, system, body.message)
+                if t in HTTP_TIERS or t == "openrouter":
+                    if t == "openrouter":
+                        content, model, usage = await _openrouter_complete(s, system, body.message, body.force_paid)
+                    else:
+                        content, model, usage = await _openai_http_complete(s, system, body.message, t, HTTP_TIERS[t])
                     yield content or ""
                     _learn(t, model, body.message, content or "", 0.0, body.session_id)
                     _ok(t, model, content or "", t0, usage)
@@ -525,6 +651,11 @@ async def chat_stream(body: ChatBody, user=Depends(require_director)):
                 _COLD[t] = time.time() + cold
                 last_err = f"{t} 429"
                 _fail(t, f"429 rate-limited (cold {cold}s)", 429, t0)
+                continue
+            except _PaymentRequired as e:
+                _COLD[t] = time.time() + PAYMENT_COLD_S
+                last_err = f"{t} 402 insufficient credit"
+                _fail(t, f"402 insufficient credit: {str(e)[:100]}", 402, t0)
                 continue
             except Exception as e:
                 last_err = str(e)

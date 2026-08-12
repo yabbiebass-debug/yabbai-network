@@ -67,7 +67,7 @@
   </nav>
 
   <h1>The <em>routed brain</em> — your wiring.</h1>
-  <div class="sub">Stack your model tiers in any order. Every request walks the list top-to-bottom until one answers, so the clan never goes dark. Free tiers first (NVIDIA, Groq Llama, xAI Grok), your YABBAI Local box next — constantly learning from every peer answer — and paid Claude last.</div>
+  <div class="sub">Stack your model tiers in any order. Every request walks the list top-to-bottom until one answers, so the clan never goes dark. Free tiers first (NVIDIA, Groq, Cerebras, Google, OpenRouter :free), your YABBAI Local box for client data, and paid Claude last — guarded: it only fires after 3+ free tiers fail, or on an explicit force_paid flag.</div>
 
   <div class="eyebrow">Active routing</div>
   <div class="card"><div class="flow" id="flow">loading…</div></div>
@@ -121,10 +121,14 @@ let loaded = false;         // guards Save until the page has hydrated
 const TIERS = {
   nvidia:   {label:'NVIDIA NIM', accent:'free OpenAI-compatible endpoints', icon:'▸'},
   groq:     {label:'Groq · Llama 3.3 70B', accent:'free ultra-fast Llama inference (api.groq.com)', icon:'▸'},
-  grok:     {label:'xAI Grok 4.5', accent:'xAI Grok via api.x.ai — needs team credits', icon:'▸'},
-  emergent: {label:'Emergent · Claude', accent:'Claude Sonnet via your Universal key', icon:'▸'},
-  yabbai:   {label:'YABBAI Local / Ollama', accent:'your self-hosted box — learns from every peer answer', icon:'▸'},
+  cerebras: {label:'Cerebras', accent:'free tier ~1M tokens/day (api.cerebras.ai)', icon:'▸'},
+  google:   {label:'Google AI Studio', accent:'free Gemini tier — never sees client/lead data', icon:'▸'},
+  openrouter:{label:'OpenRouter', accent:':free variants by default — paid models only when explicitly flagged', icon:'▸'},
+  grok:     {label:'xAI Grok', accent:'dormant by default — flip XAI_ENABLED (or the toggle) when the team is funded', icon:'▸'},
+  emergent: {label:'Emergent · Claude', accent:'PAID, guarded — only after 3+ free tiers fail, or force_paid', icon:'▸'},
+  yabbai:   {label:'YABBAI Local / Ollama', accent:'your self-hosted box — the ONLY tier allowed client data; off by default', icon:'▸'},
 };
+const CANONICAL_ORDER = ['nvidia','groq','cerebras','google','openrouter','grok','yabbai','emergent'];
 
 async function load(){
   try{
@@ -139,9 +143,9 @@ async function load(){
     document.getElementById('flow').innerHTML = '<span style="color:var(--red)">Could not load settings — '+e+'</span>';
     return;
   }
-  order = (S.route_order && S.route_order.length) ? S.route_order.slice() : ['nvidia','groq','grok','yabbai','emergent'];
+  order = (S.route_order && S.route_order.length) ? S.route_order.slice() : CANONICAL_ORDER.slice();
   order = order.filter(t=>TIERS[t]);
-  ['nvidia','groq','grok','yabbai','emergent'].forEach(t=>{ if(!order.includes(t)) order.push(t); });
+  CANONICAL_ORDER.forEach(t=>{ if(!order.includes(t)) order.push(t); });
   render();
 }
 
@@ -277,6 +281,20 @@ function tierBody(t, idx, enabled){
     </div>
     <div class="test" id="test_nvidia"></div>
     <div class="hint">Get a free key at <b>build.nvidia.com</b> → any model → "Get API Key". Save the key first, then "Load free models".</div>`;
+  if(t==='cerebras'||t==='google'||t==='openrouter') return head + `
+    <label>${TIERS[t].label} API key</label>
+    <input type="password" id="${t}_api_key" placeholder="${secretSet(t+'_api_key')?'•••••••• (saved — leave blank to keep)':({cerebras:'csk-...',google:'AIza...',openrouter:'sk-or-...'})[t]}" data-testid="${t}-key">
+    <div class="twocol">
+      <div><label>Base URL</label><input id="${t}_base_url" value="${esc(S[t+'_base_url']||'')}"></div>
+      <div><label>Model</label><input id="${t}_model" value="${esc(S[t+'_model']||'')}"></div>
+    </div>
+    <div class="row"><button class="btn sm green" data-test="${t}">Test</button></div>
+    <div class="test" id="test_${t}"></div>
+    <div class="hint">${({
+      cerebras:'Free key at <b>cloud.cerebras.ai</b> — ~1M tokens/day. Client/lead data never routes here.',
+      google:'Free key at <b>aistudio.google.com</b>. Google trains on free-tier prompts outside UK/CH/EEA/EU — client/lead data never routes here.',
+      openrouter:'Key at <b>openrouter.ai/keys</b>. Defaults to <b>:free</b> variants; paid models only on explicitly flagged requests. Spend tracked against the key cap in /api/ai/stats. Client/lead data never routes here.'
+    })[t]}</div>`;
   if(t==='groq') return head + `
     <label>Groq API key</label>
     <input type="password" id="groq_api_key" placeholder="${secretSet('groq_api_key')?'•••••••• (saved — leave blank to keep)':'gsk_...'}" data-testid="groq-key">
@@ -323,6 +341,9 @@ function keyOk(t){
   if(t==='nvidia') return secretSet('nvidia_api_key');
   if(t==='groq') return secretSet('groq_api_key');
   if(t==='grok') return secretSet('grok_api_key');
+  if(t==='cerebras') return secretSet('cerebras_api_key');
+  if(t==='google') return secretSet('google_api_key');
+  if(t==='openrouter') return secretSet('openrouter_api_key');
   if(t==='emergent') return S.secrets_set && true; // emergent key server-side
   if(t==='yabbai') return !!(S.yabbai_url);
   return false;
@@ -336,13 +357,22 @@ function collect(){
     route_order: order,
     nvidia_enabled: S.nvidia_enabled!==false,
     groq_enabled: S.groq_enabled!==false,
-    grok_enabled: S.grok_enabled!==false,
+    cerebras_enabled: S.cerebras_enabled!==false,
+    google_enabled: S.google_enabled!==false,
+    openrouter_enabled: S.openrouter_enabled!==false,
+    grok_enabled: S.grok_enabled===true,
     emergent_enabled: S.emergent_enabled!==false,
-    yabbai_enabled: S.yabbai_enabled!==false,
+    yabbai_enabled: S.yabbai_enabled===true,
     nvidia_base_url: g('nvidia_base_url'),
     nvidia_model: g('nvidia_model'),
     groq_base_url: g('groq_base_url'),
     groq_model: g('groq_model'),
+    cerebras_base_url: g('cerebras_base_url'),
+    cerebras_model: g('cerebras_model'),
+    google_base_url: g('google_base_url'),
+    google_model: g('google_model'),
+    openrouter_base_url: g('openrouter_base_url'),
+    openrouter_model: g('openrouter_model'),
     grok_base_url: g('grok_base_url'),
     grok_model: g('grok_model'),
     emergent_model: g('emergent_model'),
@@ -352,6 +382,9 @@ function collect(){
   const nk = g('nvidia_api_key'); if(nk) p.nvidia_api_key = nk;
   const gq = g('groq_api_key'); if(gq) p.groq_api_key = gq;
   const gk = g('grok_api_key'); if(gk) p.grok_api_key = gk;
+  const cb = g('cerebras_api_key'); if(cb) p.cerebras_api_key = cb;
+  const gg = g('google_api_key'); if(gg) p.google_api_key = gg;
+  const orr = g('openrouter_api_key'); if(orr) p.openrouter_api_key = orr;
   const yk = g('yabbai_api_key'); if(yk) p.yabbai_api_key = yk;
   return p;
 }

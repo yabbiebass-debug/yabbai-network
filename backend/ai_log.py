@@ -14,6 +14,8 @@ import time
 import logging
 from datetime import datetime, timezone, timedelta
 
+import httpx
+
 from network_db import db
 
 log = logging.getLogger("ai_log")
@@ -50,6 +52,7 @@ async def ensure_indexes():
 async def log_request(request_id, task_type, tier_requested, tier_served, model,
                       latency_ms, tokens_in, tokens_out, error, http_status,
                       fell_through_from, attempts, sensitive, paid,
+                      paid_reason=None, cost_usd=None,
                       prompt=None, response=None, session_id=None):
     global _write_n
     await ensure_indexes()
@@ -61,6 +64,7 @@ async def log_request(request_id, task_type, tier_requested, tier_served, model,
         "error": error, "http_status": http_status,
         "fell_through_from": fell_through_from or [], "attempts": attempts or [],
         "sensitive": bool(sensitive), "paid": bool(paid), "rating": None,
+        "paid_reason": paid_reason, "cost_usd": cost_usd,
         "session_id": session_id,
     })
     if not sensitive and (prompt or response):
@@ -173,9 +177,55 @@ async def stats(days=7):
     served_total = await db.ai_request_log.count_documents({**match, "tier_served": {"$ne": None}})
     paid_total = await db.ai_request_log.count_documents({**match, "paid": True})
     free_served = served_total - paid_total
+
+    # OpenRouter spend vs its hard key cap (usage.cost is the provider's own number)
+    or_win, or_all = None, None
+    async for d in db.ai_request_log.aggregate([
+            {"$match": {**match, "tier_served": "openrouter"}},
+            {"$group": {"_id": None, "usd": {"$sum": {"$ifNull": ["$cost_usd", 0]}},
+                        "n": {"$sum": 1}}}]):
+        or_win = d
+    async for d in db.ai_request_log.aggregate([
+            {"$match": {"tier_served": "openrouter"}},
+            {"$group": {"_id": None, "usd": {"$sum": {"$ifNull": ["$cost_usd", 0]}}}}]):
+        or_all = d
+
     return {
         "window_days": days, "requests": total, "served": served_total,
         "failed": total - served_total, "paid_hits": paid_total, "free_served": free_served,
         "free_ratio": round(free_served / served_total, 4) if served_total else None,
         "tiers": tiers,
+        "openrouter": {
+            "served_window": or_win["n"] if or_win else 0,
+            "spend_usd_window": round(or_win["usd"], 6) if or_win else 0.0,
+            "spend_usd_total": round(or_all["usd"], 6) if or_all else 0.0,
+            "key_cap_usd": float(os.environ.get("OPENROUTER_KEY_CAP_USD", "6.50")),
+            "key_live": None,  # filled by the router (needs the key)
+        },
     }
+
+
+_or_key_cache = {"ts": 0.0, "data": None}
+
+
+async def openrouter_key_status(key, base_url="https://openrouter.ai/api/v1"):
+    """Live usage/limit from OpenRouter's /key endpoint — the authoritative view of
+    the $ cap draining. Null on failure or when no key is set, never a made-up 0."""
+    if not key:
+        return None
+    if time.time() - _or_key_cache["ts"] < 300:
+        return _or_key_cache["data"]
+    data = None
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as c:
+            r = await c.get(f"{base_url.rstrip('/')}/key",
+                            headers={"Authorization": f"Bearer {key}"})
+        if r.status_code == 200:
+            d = (r.json() or {}).get("data") or {}
+            data = {"usage_usd": d.get("usage"), "limit_usd": d.get("limit"),
+                    "limit_remaining_usd": d.get("limit_remaining")}
+    except Exception:
+        data = None
+    _or_key_cache["ts"] = time.time()
+    _or_key_cache["data"] = data
+    return data
