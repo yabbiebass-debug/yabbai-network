@@ -55,9 +55,12 @@ DEFAULTS = {
     "yabbai_model": "llama3.2",
     "supabase_url": "https://gecwxvwziktvaiwdhzeg.supabase.co",
     # GoldScout news scout — Tavily. Scanner is manual-only unless a positive
-    # interval is set (env GOLDSCOUT_INTERVAL_SECS). Free tier is credit-metered
-    # per month, so an accidental continuous loop would burn it fast.
+    # interval is set (env GOLDSCOUT_INTERVAL_SECS). Free/dev tier is 100
+    # credits/month — enforce a hard ceiling in-app, cache aggressively.
     "goldscout_interval_secs": 0,
+    "goldscout_cache_ttl_hours": 24,
+    "goldscout_default_depth": "basic",   # basic=1cr, advanced=2cr per Tavily call
+    "tavily_monthly_limit": 100,
 }
 
 
@@ -91,6 +94,8 @@ async def get_raw_settings() -> dict:
     # Integer envs (interval etc.) — coerce safely; blank/invalid keeps merged value.
     int_env_map = {
         "goldscout_interval_secs": "GOLDSCOUT_INTERVAL_SECS",
+        "goldscout_cache_ttl_hours": "GOLDSCOUT_CACHE_TTL_HOURS",
+        "tavily_monthly_limit": "TAVILY_MONTHLY_LIMIT",
     }
     for k, env_name in int_env_map.items():
         v = os.environ.get(env_name)
@@ -102,6 +107,10 @@ async def get_raw_settings() -> dict:
     for k, v in env_map.items():
         if v:
             merged[k] = v
+    # String env override for depth (basic|advanced).
+    depth_env = os.environ.get("GOLDSCOUT_DEFAULT_DEPTH")
+    if depth_env and depth_env.strip().lower() in ("basic", "advanced"):
+        merged["goldscout_default_depth"] = depth_env.strip().lower()
     # Boolean env overrides win over saved settings (set "true"/"false").
     bool_env_map = {
         "nvidia_enabled": "NVIDIA_ENABLED",

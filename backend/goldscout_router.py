@@ -17,12 +17,16 @@ message-signature; the user executes any swap themselves in their own wallet.
 
 import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Dict
 
 from fastapi import APIRouter, BackgroundTasks, Request, HTTPException, Header
 from pydantic import BaseModel
 
-from goldscout.core.scout import run_scout, clear_findings as _legacy_clear, tavily_usage
+from goldscout.core.scout import (
+    run_scout, clear_findings as _legacy_clear, tavily_usage,
+    credit_status, project_monthly_credits, scan_cost, DEFAULT_MONTHLY_LIMIT,
+    DEFAULT_CACHE_TTL_HOURS,
+)
 from goldscout.core.scam_analysis import GOLDEN_RULES, analyze_opportunity
 from goldscout.core import store
 from goldscout.core import market as market_mod
@@ -44,6 +48,16 @@ async def _tavily_configured() -> bool:
     return bool(await _tavily_key())
 
 
+async def _budget_cfg() -> Dict:
+    s = await get_raw_settings()
+    return {
+        "monthly_limit": int(s.get("tavily_monthly_limit") or DEFAULT_MONTHLY_LIMIT),
+        "cache_ttl_hours": int(s.get("goldscout_cache_ttl_hours") or DEFAULT_CACHE_TTL_HOURS),
+        "default_depth": (s.get("goldscout_default_depth") or "basic"),
+        "interval_secs": int(s.get("goldscout_interval_secs") or 0),
+    }
+
+
 async def _require_user(request: Request, authorization: Optional[str]):
     session, user = await _session_and_user(request, authorization)
     if not user:
@@ -58,24 +72,51 @@ async def health():
     s = await get_raw_settings()
     key = (s.get("tavily_api_key") or os.getenv("TAVILY_API_KEY", "") or "").strip()
     interval = int(s.get("goldscout_interval_secs") or 0)
-    return {"ok": True, "app": "goldscout", "version": "3.1.0",
+    depth = (s.get("goldscout_default_depth") or "basic")
+    limit = int(s.get("tavily_monthly_limit") or DEFAULT_MONTHLY_LIMIT)
+    return {"ok": True, "app": "goldscout", "version": "3.2.0",
             "market_source": "dexscreener (live, no key)",
             "safety_sources": ["solana_rpc", "goplus"],
             "news_scout": "tavily" if key else "disabled (set TAVILY_API_KEY in /settings)",
             "tavily_configured": bool(key),
-            "scanner_mode": "scheduled" if interval > 0 else "manual",
+            "scanner_mode": "scheduled" if interval > 0 else "on-demand",
             "scanner_interval_secs": interval,
+            "default_depth": depth,
+            "monthly_credit_limit": limit,
+            "cache_ttl_hours": int(s.get("goldscout_cache_ttl_hours") or DEFAULT_CACHE_TTL_HOURS),
+            "scan_cost": scan_cost(depth),
             "persistence": "mongo",
             "ts": datetime.now(timezone.utc).isoformat()}
 
 
-# ── Tavily key status (real usage/limit/remaining, cached upstream) ──────────
+# ── Tavily key status — real usage/limit + monthly credit ledger ─────────────
 @router.get("/tavily/status")
 async def tavily_status(request: Request, authorization: Optional[str] = Header(None)):
-    """Live remaining Tavily credits — never invented. Called by /settings Test
-    button and surfaced under /api/ai/stats.tavily as well."""
+    """Combined view: local monthly ledger (authoritative for enforcement)
+    + live Tavily /usage numbers + scan cost. Called by /settings Test button
+    and surfaced under /api/ai/stats.tavily as well."""
     await _require_user(request, authorization)
-    return await tavily_usage(await _tavily_key())
+    cfg = await _budget_cfg()
+    return await credit_status(await _tavily_key(),
+                               monthly_limit=cfg["monthly_limit"],
+                               depth=cfg["default_depth"],
+                               cache_ttl_hours=cfg["cache_ttl_hours"])
+
+
+# ── Schedule cost projection (before turning any scheduler on) ────────────────
+@router.get("/schedule/project")
+async def schedule_project(interval_secs: int = 0, depth: str = "basic",
+                            request: Request = None,
+                            authorization: Optional[str] = Header(None)):
+    """Projected monthly Tavily credit cost of a proposed schedule. Read-only —
+    nothing is turned on. Use this before setting GOLDSCOUT_INTERVAL_SECS."""
+    if request is not None:
+        await _require_user(request, authorization)
+    cfg = await _budget_cfg()
+    p = project_monthly_credits(int(interval_secs or 0), depth)
+    p["monthly_credit_limit"] = cfg["monthly_limit"]
+    p["fits_budget"] = (p["credits_per_month"] <= cfg["monthly_limit"])
+    return p
 
 
 # ── real market scan (live DEX data, no key) ──────────────────────────────────
@@ -116,8 +157,13 @@ async def token_safety(body: SafetyBody, request: Request, authorization: Option
 
 
 # ── news scout (Tavily) — now persists to Mongo per user ──────────────────────
+class ScoutRunBody(BaseModel):
+    depth: Optional[str] = None   # 'basic' (default) or 'advanced'
+
+
 @router.post("/api/scout/run")
 async def scout_run(background_tasks: BackgroundTasks, request: Request,
+                    body: ScoutRunBody = ScoutRunBody(),
                     authorization: Optional[str] = Header(None)):
     user = await _require_user(request, authorization)
     key = await _tavily_key()
@@ -128,12 +174,27 @@ async def scout_run(background_tasks: BackgroundTasks, request: Request,
     if _state["running"]:
         return {"ok": False, "message": "Scout already running — check status"}
 
+    cfg = await _budget_cfg()
+    depth = (body.depth or cfg["default_depth"] or "basic").lower()
+    if depth not in ("basic", "advanced"):
+        depth = "basic"
+    # Pre-flight budget check — refuse if we already can't afford one live call.
+    status = await credit_status(key, monthly_limit=cfg["monthly_limit"],
+                                 depth=depth, cache_ttl_hours=cfg["cache_ttl_hours"])
+    if status["monthly"]["exhausted"]:
+        return {"ok": False, "budget_exhausted": True,
+                "message": f"Monthly Tavily budget exhausted "
+                           f"({status['monthly']['used']}/{status['monthly']['limit']} used). "
+                           f"Resets next calendar month. No stale fallback."}
+
     uid = user["user_id"]
 
     async def _run():
         _state["running"] = True
         try:
-            result = await run_scout(api_key=key)
+            result = await run_scout(api_key=key, depth=depth,
+                                     cache_ttl_hours=cfg["cache_ttl_hours"],
+                                     monthly_limit=cfg["monthly_limit"])
             await store.add_findings(uid, result.get("findings", []))
             await store.record_scan(uid, "news", result.get("summary", {}))
             _state["last_summary"] = result.get("summary")
@@ -144,7 +205,9 @@ async def scout_run(background_tasks: BackgroundTasks, request: Request,
             _state["running"] = False
 
     background_tasks.add_task(_run)
-    return {"ok": True, "message": "News scout started — results at /api/scout/findings"}
+    return {"ok": True, "message": "News scout started — results at /api/scout/findings",
+            "depth": depth, "cache_ttl_hours": cfg["cache_ttl_hours"],
+            "monthly_budget": status["monthly"]}
 
 
 @router.get("/api/scout/status")

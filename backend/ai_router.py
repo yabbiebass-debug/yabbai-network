@@ -473,13 +473,17 @@ async def stats(days: int = 7, user=Depends(require_director)):
     data["openrouter"]["key_live"] = await ai_log.openrouter_key_status(
         s.get("openrouter_api_key"),
         s.get("openrouter_base_url") or DEFAULTS["openrouter_base_url"])
-    # Tavily (GoldScout news scout) — real usage/limit, cached inside the helper.
+    # Tavily (GoldScout news scout) — local monthly ledger + live /usage + cost.
     try:
-        from goldscout.core.scout import tavily_usage as _tavily_usage
-        data["tavily"] = await _tavily_usage(s.get("tavily_api_key"))
+        from goldscout.core.scout import credit_status as _tavily_credit_status
+        data["tavily"] = await _tavily_credit_status(
+            s.get("tavily_api_key"),
+            monthly_limit=int(s.get("tavily_monthly_limit") or 100),
+            depth=(s.get("goldscout_default_depth") or "basic"),
+            cache_ttl_hours=int(s.get("goldscout_cache_ttl_hours") or 24))
     except Exception:
         data["tavily"] = {"configured": bool(s.get("tavily_api_key")), "ok": False,
-                          "error": "usage lookup failed"}
+                          "error": "credit status lookup failed"}
     data["ok"] = True
     return data
 

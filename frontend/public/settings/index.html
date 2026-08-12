@@ -75,7 +75,7 @@
   <div class="eyebrow">Model tiers — drag the priority with the arrows</div>
   <div id="tiers"></div>
 
-  <div class="eyebrow">GoldScout · Tavily — news scout credits</div>
+  <div class="eyebrow">GoldScout · Tavily — 100 credits/month, hard ceiling</div>
   <div class="card" id="tvCard">
     <div class="chead"><h3><i>▸</i> Tavily API key</h3><span class="keyset" id="tvKeyset">not set</span></div>
     <label>Tavily API key — secret, stored server-side, never shown again</label>
@@ -85,7 +85,27 @@
       <button class="btn sm ghost" id="tvRefresh" data-testid="tavily-refresh">Refresh usage</button>
     </div>
     <div class="test" id="tvResult"></div>
-    <div class="hint">Free key at <b>app.tavily.com</b> — 1,000 credits/month, monthly reset. Scanner is <b id="tvMode">manual only</b> (set env <code>GOLDSCOUT_INTERVAL_SECS</code> to enable scheduling). Remaining credits also surface at <a href="/api/ai/stats" target="_blank">/api/ai/stats</a>. Preview and production keep separate Mongo settings — paste here for preview, then paste again at <code>https://yabbai.network/settings/</code> after you redeploy prod.</div>
+    <div id="tvBudget" style="margin-top:12px;display:none">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">
+        <span>Monthly credit budget</span><span id="tvBudgetLabel">…</span>
+      </div>
+      <div style="height:8px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;overflow:hidden">
+        <div id="tvBudgetBar" style="height:100%;width:0%;background:var(--green);transition:width .3s"></div>
+      </div>
+      <div class="hint" id="tvScanCost" style="margin-top:8px"></div>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);margin-bottom:8px">Projected schedule cost</div>
+      <div class="twocol">
+        <div><label>Interval (seconds — 0 = on-demand only)</label><input id="tv_interval" type="number" min="0" value="0" data-testid="tavily-interval"></div>
+        <div><label>Depth</label>
+          <select id="tv_depth" data-testid="tavily-depth"><option value="basic">basic (1 credit/call)</option><option value="advanced">advanced (2 credits/call)</option></select>
+        </div>
+      </div>
+      <div class="row"><button class="btn sm" id="tvProject" data-testid="tavily-project">Project monthly cost</button></div>
+      <div class="test" id="tvProjectResult"></div>
+    </div>
+    <div class="hint" style="margin-top:14px">Free key at <b>app.tavily.com</b>. Dev tier = <b>100 credits/month</b>, hard ceiling — GoldScout enforces this locally in Mongo, no fallback to stale results when exhausted. Cache is <b id="tvCacheTtl">24h</b> per query — repeat searches cost 0. Preview and production keep separate Mongo settings — paste here for preview, then again at <code>https://yabbai.network/settings/</code> after redeploy.</div>
   </div>
 
   <div class="eyebrow">Supabase — live Postgres data layer</div>
@@ -187,14 +207,16 @@ function render(){
 
 async function renderTavily(){
   const badge = $('tvKeyset');
-  const modeEl = $('tvMode');
   const ks = S.secrets_set && S.secrets_set.tavily_api_key;
   if(badge){ badge.textContent = ks ? 'configured' : 'not set'; badge.className = 'keyset '+(ks?'yes':''); }
-  const interval = Number(S.goldscout_interval_secs || 0);
-  if(modeEl) modeEl.textContent = interval > 0 ? ('scheduled every '+interval+'s') : 'manual only';
+  const cache = Number(S.goldscout_cache_ttl_hours || 24);
+  const cacheEl = $('tvCacheTtl'); if(cacheEl) cacheEl.textContent = cache + 'h';
+  const depthSel = $('tv_depth'); if(depthSel) depthSel.value = (S.goldscout_default_depth || 'basic');
+  const intEl = $('tv_interval'); if(intEl) intEl.value = String(S.goldscout_interval_secs || 0);
   const btn = $('tvTest'); if(btn) btn.onclick = tavilyTest;
   const rbtn = $('tvRefresh'); if(rbtn) rbtn.onclick = tavilyRefresh;
-  if(ks) tavilyRefresh(true); // best-effort show of remaining credits on load
+  const pbtn = $('tvProject'); if(pbtn) pbtn.onclick = tavilyProject;
+  if(ks) tavilyRefresh(true);
 }
 
 async function tavilyTest(){
@@ -220,18 +242,50 @@ async function tavilyRefresh(silent, targetEl){
   }catch(e){ if(!silent){ res.className='test err'; res.textContent='✗ Could not reach GoldScout.'; } return; }
   if(!d || d.configured === false){
     if(!silent){ res.className='test err'; res.textContent='No Tavily key saved yet.'; }
+    $('tvBudget').style.display='none';
     return;
   }
-  if(!d.ok){
-    res.className='test err';
-    res.textContent = '✗ Tavily said: '+ (d.error || 'unknown error') +' — key may be wrong or Tavily is down.';
-    return;
+  const m = d.monthly || {};
+  const live = d.live || {};
+  const cost = d.scan_cost || {};
+  const remaining = m.remaining ?? '—';
+  const used = m.used ?? '—';
+  const limit = m.limit ?? '—';
+  const pct = Math.min(100, Number(m.pct_used || 0));
+  // Budget bar
+  $('tvBudget').style.display='block';
+  $('tvBudgetLabel').textContent = `${used} / ${limit} used · ${remaining} left · ${m.month || ''}`;
+  const bar = $('tvBudgetBar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct >= 100 ? 'var(--red)' : (pct >= 80 ? 'var(--amber)' : 'var(--green)');
+  $('tvScanCost').innerHTML = `1 full scan = <b>${cost.queries_per_scan}</b> Tavily calls × <b>${cost.credits_per_call}</b> credit(s) = <b>${cost.credits_per_scan}</b> credits (depth: ${cost.depth}). At current budget you can run <b>${d.scans_remaining_this_month ?? '—'}</b> more full scans this month.`;
+  // Live line + warning
+  if(!live.ok){
+    res.className='test';
+    res.innerHTML = `Local ledger: ${used}/${limit} used · Tavily live check: <span style="color:var(--amber)">${live.error || 'unavailable'}</span>`;
+  } else {
+    const live_rem = (live.remaining==null) ? '—' : live.remaining;
+    const divergent = (live.usage != null && Math.abs(Number(live.usage) - Number(used)) > 2);
+    res.className = m.exhausted ? 'test err' : (m.warn_80pct ? 'test' : 'test ok');
+    res.innerHTML = `✓ ${remaining} credits left this month (local ledger). Tavily says ${live_rem} left${divergent? ' <span style="color:var(--amber)">(diverges from local — cross-check)</span>':''}.`;
+    if(m.exhausted) res.innerHTML = `✗ Monthly Tavily budget exhausted (${used}/${limit}). No stale fallback. Resets next calendar month.`;
+    else if(m.warn_80pct) res.innerHTML += ` <span style="color:var(--amber)">⚠ 80%+ used.</span>`;
   }
-  const rem = (d.remaining==null) ? '—' : d.remaining;
-  const lim = (d.limit==null) ? 'unlimited' : d.limit;
-  const use = (d.usage==null) ? '—' : d.usage;
-  res.className='test ok';
-  res.innerHTML = `✓ Tavily live — <b>${rem}</b> credits left (${use} used of ${lim}${d.plan? ' · '+d.plan:''}).`;
+}
+
+async function tavilyProject(){
+  const res = $('tvProjectResult'); res.className='test'; res.textContent='Projecting…';
+  const interval = Number($('tv_interval').value || 0);
+  const depth = $('tv_depth').value || 'basic';
+  try{
+    const p = await fetch(API+`/api/goldscout/schedule/project?interval_secs=${interval}&depth=${depth}`,{credentials:'include'}).then(r=>r.json());
+    if(interval <= 0){
+      res.className='test'; res.textContent = 'Interval 0 → scheduler stays off. On-demand only.';
+      return;
+    }
+    res.className = p.fits_budget ? 'test ok' : 'test err';
+    res.innerHTML = `${p.scans_per_month} scans/month × ${p.credits_per_scan} credits = <b>${p.credits_per_month}</b> credits/month vs limit <b>${p.monthly_credit_limit}</b>. ${p.fits_budget ? '✓ Fits.' : '✗ Would blow the budget — pick a longer interval.'}`;
+  }catch(e){ res.className='test err'; res.textContent='✗ Projection failed.'; }
 }
 
 async function loadLearning(){
