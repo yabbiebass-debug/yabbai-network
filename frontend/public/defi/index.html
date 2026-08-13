@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YABBAI DeFi — live Solana, Phantom-signed</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+<style>
+  :root{--void:#020814;--panel:#081226;--panel2:#0c1a38;--line:rgba(20,241,149,.16);
+    --purple:#9945FF;--green:#14F195;--amber:#F5A623;--red:#FF4D6D;--ink:#EEF1FB;--dim:#9AA3C0;--dim2:#5e6688;
+    --disp:'Unbounded',sans-serif;--mono:'JetBrains Mono',monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--void);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.6}
+  body{background:radial-gradient(1100px 600px at 50% -10%,rgba(20,241,149,.07),transparent 60%),var(--void);min-height:100vh}
+  a{text-decoration:none;color:inherit}
+  button{font-family:var(--mono);cursor:pointer;border:none;background:none;color:inherit}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 22px 80px}
+  .nav{display:flex;align-items:center;gap:10px;padding:16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .brand{font-family:var(--disp);font-weight:800;font-size:15px}.brand b{color:var(--green)}
+  .brand small{display:block;font-weight:400;font-size:9px;color:var(--dim);letter-spacing:2.5px;margin-top:2px}
+  .chips{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .chip{font-size:9px;letter-spacing:1.5px;padding:5px 10px;border-radius:99px;border:1px solid var(--dim2);color:var(--dim);text-transform:uppercase}
+  .chip.on{border-color:var(--green);color:var(--green)}
+  .chip.off{border-color:var(--amber);color:var(--amber)}
+  .tabs{display:flex;gap:6px;margin:18px 0 0;flex-wrap:wrap}
+  .tab{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 14px;border:1px solid var(--line);border-radius:4px;color:var(--dim)}
+  .tab.active{border-color:var(--green);color:var(--green)}
+  .card{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:18px;margin:14px 0}
+  .card h3{font-family:var(--disp);font-size:11px;letter-spacing:1.5px;margin-bottom:10px}
+  .card h3 i{font-style:normal;color:var(--green)}
+  label{font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--dim2);display:block;margin:10px 0 4px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:9px 10px;border-radius:3px;font-family:var(--mono);font-size:12px}
+  input:focus{border-color:var(--green);outline:none}
+  .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn{padding:9px 16px;border:1px solid var(--green);color:var(--green);font-weight:700;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;transition:all .15s}
+  .btn:hover{background:var(--green);color:#021}
+  .btn.purple{border-color:var(--purple);color:var(--purple)}.btn.purple:hover{background:var(--purple);color:#fff}
+  .btn.danger{border-color:var(--red);color:var(--red)}.btn.danger:hover{background:var(--red);color:#fff}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn:disabled:hover{background:none;color:var(--green)}
+  .out{font-size:11px;color:var(--dim);margin-top:10px;white-space:pre-wrap;word-break:break-word;line-height:1.7}
+  .out.ok{color:var(--green)}.out.err{color:var(--red)}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:11px}
+  th{font-size:8.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim2);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  td{padding:7px 8px;border-bottom:1px solid rgba(153,69,255,.07);color:var(--dim)}
+  td b{color:var(--ink)}
+  .v-clear{color:var(--green)}.v-info{color:var(--amber)}.v-caution{color:var(--red)}.v-unknown{color:var(--dim2)}
+  .confirm{border:1px solid var(--amber);background:rgba(245,166,35,.05);border-radius:6px;padding:16px;margin-top:14px}
+  .confirm h4{font-family:var(--disp);font-size:10px;letter-spacing:1.5px;color:var(--amber);margin-bottom:10px}
+  .kv{display:grid;grid-template-columns:180px 1fr;gap:4px 12px;font-size:11px}
+  .kv .k{color:var(--dim2)}.kv .val{color:var(--ink)}
+  .hint{font-size:10px;color:var(--dim2);line-height:1.6;margin-top:10px}
+  .sec{display:none}.sec.active{display:block}
+  .banner{border:1px solid var(--amber);color:var(--amber);border-radius:6px;padding:10px 14px;font-size:11px;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app" data-testid="defi-page">
+  <nav class="nav">
+    <div class="brand">YABBAI<b>.</b>DEFI<small>LIVE SOLANA · JUPITER SWAP V2 · PHANTOM-SIGNED · NO SERVER KEYS</small></div>
+    <div class="chips" id="chips"></div>
+  </nav>
+
+  <div class="banner" id="darkBanner" style="display:none" data-testid="defi-dark-banner">
+    ⬤ LIVE EXECUTION IS OFF (DEFI_LIVE_ENABLED=false). Quotes, simulation and all read-only
+    planes work; nothing can execute until the operator flips the flag.
+  </div>
+
+  <div class="card">
+    <h3><i>▸</i> Wallet</h3>
+    <div class="row">
+      <button class="btn" id="phConnect" data-testid="defi-connect-phantom">Connect Phantom</button>
+      <input id="walletInput" placeholder="…or paste any Solana address (watch-only)" style="flex:1;min-width:280px" data-testid="defi-wallet-input">
+      <button class="btn purple" id="loadWallet" data-testid="defi-load-wallet">Load</button>
+    </div>
+    <div class="out" id="walletStatus">no wallet loaded</div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <!-- PORTFOLIO -->
+  <div class="sec" id="sec-portfolio">
+    <div class="card"><h3><i>▸</i> Portfolio</h3><div class="out" id="pfOut" data-testid="defi-portfolio-out">load a wallet above</div></div>
+    <div class="card"><h3><i>▸</i> Token search + Shield</h3>
+      <div class="row"><input id="tokQ" placeholder="search tokens (symbol/name/mint)" style="flex:1" data-testid="defi-token-search-input"><button class="btn" id="tokGo" data-testid="defi-token-search-btn">Search</button></div>
+      <div class="out" id="tokOut"></div>
+    </div>
+    <div class="card"><h3><i>▸</i> Yields (DeFiLlama)</h3>
+      <div class="row"><input id="ySym" placeholder="symbol e.g. SOL / USDC" style="flex:1"><button class="btn" id="yGo" data-testid="defi-yields-btn">Fetch</button></div>
+      <div class="out" id="yOut"></div>
+    </div>
+  </div>
+
+  <!-- TRADE -->
+  <div class="sec" id="sec-trade">
+    <div class="card"><h3><i>▸</i> Quote — mandatory simulation dry-run</h3>
+      <div class="twocol">
+        <div><label>Input mint</label><input id="qIn" placeholder="So1111… (SOL)" data-testid="defi-quote-in"></div>
+        <div><label>Output mint</label><input id="qOut" placeholder="EPjFWd… (USDC)" data-testid="defi-quote-out"></div>
+      </div>
+      <div class="twocol">
+        <div><label>Amount (base units)</label><input id="qAmt" type="number" min="1" placeholder="1000000" data-testid="defi-quote-amount"></div>
+        <div><label>Slippage bps</label><input id="qSlip" type="number" value="50"></div>
+      </div>
+      <div class="row"><button class="btn" id="qGo" data-testid="defi-quote-btn">Get quote</button></div>
+      <div class="out" id="qStatus"></div>
+      <div id="qConfirm"></div>
+    </div>
+    <div class="card"><h3><i>▸</i> Trade history</h3><div class="row"><button class="btn purple" id="histGo" data-testid="defi-history-btn">Refresh</button></div><div class="out" id="histOut"></div></div>
+  </div>
+
+  <!-- JANITOR -->
+  <div class="sec" id="sec-janitor">
+    <div class="card"><h3><i>▸</i> Janitor — rent recovery (PROTECTED by default)</h3>
+      <div class="row">
+        <button class="btn" id="jScan" data-testid="janitor-scan-btn">Scan wallet</button>
+        <button class="btn purple" id="jEst" data-testid="janitor-estimate-btn">Estimate recovery</button>
+      </div>
+      <div class="out" id="jOut"></div>
+      <div id="jBuild"></div>
+      <div class="hint">Closes and dust burns are separately-signed actions — never mixed in one
+      signature. You sign AND broadcast in Phantom; the backend only builds unsigned transactions
+      and verifies the result on-chain before booking income via the settlement rail.</div>
+    </div>
+  </div>
+
+  <!-- TRIGGERS -->
+  <div class="sec" id="sec-triggers">
+    <div class="card"><h3><i>▸</i> Trigger V2 — USD-priced orders (vault-locked)</h3>
+      <div class="twocol">
+        <div><label>Input mint</label><input id="tIn"></div>
+        <div><label>Output mint</label><input id="tOut"></div>
+      </div>
+      <div class="twocol">
+        <div><label>Making amount (base units)</label><input id="tAmt" type="number"></div>
+        <div><label>Trigger price USD</label><input id="tPrice" type="number" step="0.0001"></div>
+      </div>
+      <div class="twocol">
+        <div><label>Condition</label><select id="tCond"><option value="above">above</option><option value="below">below</option></select></div>
+        <div><label>Expiry (ISO, required by docs)</label><input id="tExp" placeholder="2026-09-01T00:00:00Z"></div>
+      </div>
+      <div class="row"><button class="btn" id="tBuild" data-testid="trigger-build-btn">Build order</button>
+        <button class="btn purple" id="tOrders" data-testid="trigger-orders-btn">Open orders</button></div>
+      <div class="out" id="tOut2"></div>
+      <div class="hint">Your funds <b>lock in the Jupiter vault</b> while an order is open — not
+      spendable until fill, expiry or cancel. $10 documented minimum. Cancelling is never gated.</div>
+    </div>
+  </div>
+
+  <!-- EARN -->
+  <div class="sec" id="sec-earn">
+    <div class="card"><h3><i>▸</i> Earn markets — sourced APY, admission-filtered</h3>
+      <div class="row"><button class="btn" id="eMkts" data-testid="earn-markets-btn">Load markets</button>
+        <button class="btn purple" id="ePos" data-testid="earn-positions-btn">My positions</button></div>
+      <div class="out" id="eOut"></div>
+      <div class="hint">Every APY is variable — not guaranteed. Outlier APY is excluded as a scam
+      signal. Accrued yield is UNREALIZED and never counts as income; withdrawals work even with
+      every flag off.</div>
+    </div>
+  </div>
+
+  <!-- SENTINEL -->
+  <div class="sec" id="sec-sentinel">
+    <div class="card"><h3><i>▸</i> Sentinel — read-only alerts</h3>
+      <div class="row">
+        <input id="sWatch" placeholder="mint to watch" style="flex:1">
+        <button class="btn purple" id="sAdd" data-testid="sentinel-watch-btn">Watch</button>
+        <button class="btn" id="sPoll" data-testid="sentinel-alerts-btn">Poll alerts now</button>
+      </div>
+      <div class="out" id="sOut"></div>
+      <div class="hint">Shield is re-run on every poll for held + watched tokens. The sentinel
+      constructs no transactions — alerts only.</div>
+    </div>
+  </div>
+
+  <!-- TREASURY -->
+  <div class="sec" id="sec-treasury">
+    <div class="card"><h3><i>▸</i> Gold Hunter treasury — settlement-gated</h3>
+      <div class="row">
+        <input type="password" id="akIn" placeholder="admin key (X-Admin-Key)" style="flex:1">
+        <button class="btn" id="ghStatus" data-testid="treasury-status-btn">Status</button>
+        <button class="btn purple" id="ghReconcile" data-testid="treasury-reconcile-btn">Run reconcile</button>
+      </div>
+      <div class="out" id="ghOut" data-testid="treasury-out"></div>
+      <div class="hint">Income books ONLY against verified external settlements (solana / stripe /
+      coinspot / paypal). Distribution requires: circuit breaker clear · reconcile &lt; 60 min ·
+      zero unverified income rows · AUD caps — and still queues for human approval.</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+const API = window.location.origin;
+const $ = id => document.getElementById(id);
+let WALLET = '';
+let HEALTH = null;
+let phantom = null;
+
+async function requireAuth(){
+  let me = null;
+  try{
+    const r = await fetch(`${API}/api/auth/me`, { credentials:'include' });
+    if(r.ok) me = await r.json();
+  }catch(e){}
+  if(!me || !me.user_id){ window.location.replace('/login/index.html'); return null; }
+  if(me.mfa_required && !me.mfa_verified){ window.location.replace('/2fa/index.html'); return null; }
+  return me;
+}
+const me = await requireAuth();
+if(!me) throw new Error('redirecting');
+
+/* ── health chips ── */
+async function loadHealth(){
+  try{ HEALTH = await fetch(`${API}/api/defi/health`).then(r=>r.json()); }catch(e){ HEALTH=null; }
+  const c = $('chips');
+  if(!HEALTH){ c.innerHTML = `<span class="chip off">defi service unreachable</span>`; return; }
+  c.innerHTML = `
+    <span class="chip ${HEALTH.live_enabled?'on':'off'}" data-testid="chip-live">live exec: ${HEALTH.live_enabled?'ON':'OFF'}</span>
+    <span class="chip ${HEALTH.jupiter_key_configured?'on':'off'}">jupiter key: ${HEALTH.jupiter_key_configured?'set':'not set'}</span>
+    <span class="chip ${HEALTH.allowed_mints_count>0?'on':'off'}">allowlist: ${HEALTH.allowed_mints_count} mints</span>
+    <a class="chip" href="/hub/index.html">← hub</a>`;
+  $('darkBanner').style.display = HEALTH.live_enabled ? 'none' : 'block';
+}
+
+/* ── tabs ── */
+const TABS = ['portfolio','trade','janitor','triggers','earn','sentinel','treasury'];
+$('tabs').innerHTML = TABS.map(t=>`<a class="tab" id="tab-${t}" data-testid="tab-${t}" href="#${t}">${t}</a>`).join('');
+function showTab(t){
+  TABS.forEach(x=>{ $('tab-'+x).classList.toggle('active', x===t);
+                    $('sec-'+x).classList.toggle('active', x===t); });
+}
+TABS.forEach(t=>{ $('tab-'+t).onclick = e=>{ e.preventDefault(); showTab(t); location.hash=t; }; });
+showTab(TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'portfolio');
+
+/* ── wallet ── */
+function setWallet(w){
+  WALLET = w;
+  $('walletStatus').textContent = w ? `wallet: ${w}` : 'no wallet loaded';
+  $('walletStatus').className = 'out ' + (w?'ok':'');
+  if(w) loadPortfolio();
+}
+$('phConnect').onclick = async ()=>{
+  const p = window.solana;
+  if(!p || !p.isPhantom){ $('walletStatus').textContent='Phantom not detected — install the extension.'; $('walletStatus').className='out err'; return; }
+  try{ const resp = await p.connect(); phantom = p; setWallet(resp.publicKey.toString()); }
+  catch(e){ $('walletStatus').textContent='Phantom: '+(e.message||e); $('walletStatus').className='out err'; }
+};
+$('loadWallet').onclick = ()=>{ const v = $('walletInput').value.trim(); if(v) setWallet(v); };
+
+/* ── portfolio ── */
+const fmt = v => (v===null||v===undefined) ? '—' : (typeof v==='number' ? v.toLocaleString('en-US',{maximumFractionDigits:4}) : v);
+async function loadPortfolio(){
+  if(!WALLET) return;
+  $('pfOut').textContent = 'loading…';
+  try{
+    const d = await fetch(`${API}/api/defi/portfolio?wallet=${WALLET}`).then(r=>r.json());
+    let html = `<table><tr><th>asset</th><th>amount</th><th>usd</th></tr>
+      <tr><td><b>SOL</b></td><td>${fmt(d.sol?.amount)}</td><td>${d.sol?.usd==null?'—':'$'+fmt(d.sol.usd)}</td></tr>`;
+    (d.tokens||[]).forEach(t=>{ html += `<tr><td>${t.mint.slice(0,10)}…</td><td>${fmt(t.amount)}</td><td>${t.usd==null?'—':'$'+fmt(t.usd)}</td></tr>`; });
+    html += `</table><div class="hint">total: ${d.total_usd==null?'—':'$'+fmt(d.total_usd)}${(d.unpriced_mints||[]).length?` · ${d.unpriced_mints.length} unpriced (—, never 0)`:''}</div>`;
+    $('pfOut').innerHTML = html;
+  }catch(e){ $('pfOut').textContent = 'portfolio failed: '+e; $('pfOut').className='out err'; }
+}
+
+/* ── token search + shield ── */
+$('tokGo').onclick = async ()=>{
+  const q = $('tokQ').value.trim(); if(!q) return;
+  $('tokOut').textContent='searching…';
+  try{
+    const d = await fetch(`${API}/api/defi/tokens?q=${encodeURIComponent(q)}`).then(r=>r.json());
+    const mints = (d.tokens||[]).slice(0,8).map(t=>t.mint).join(',');
+    const sh = mints ? await fetch(`${API}/api/defi/shield?mint=${mints}`).then(r=>r.json()) : {verdicts:{}};
+    let html = `<table><tr><th>token</th><th>mint</th><th>price</th><th>liquidity</th><th>shield</th></tr>`;
+    (d.tokens||[]).slice(0,8).forEach(t=>{
+      const v = (sh.verdicts||{})[t.mint] || 'unknown';
+      html += `<tr><td><b>${t.symbol||'?'}</b> ${t.name||''}</td><td>${t.mint.slice(0,10)}…</td>
+        <td>${t.usd_price==null?'—':'$'+fmt(t.usd_price)}</td><td>${t.liquidity_usd==null?'—':'$'+fmt(Math.round(t.liquidity_usd))}</td>
+        <td class="v-${v}">${v}</td></tr>`;
+    });
+    $('tokOut').innerHTML = html + '</table>';
+  }catch(e){ $('tokOut').textContent='search failed: '+e; }
+};
+
+/* ── yields ── */
+$('yGo').onclick = async ()=>{
+  $('yOut').textContent='fetching…';
+  try{
+    const d = await fetch(`${API}/api/defi/yields?symbol=${encodeURIComponent($('ySym').value.trim())}`).then(r=>r.json());
+    if(!d.ok){ $('yOut').textContent = d.error || 'failed'; return; }
+    let html = `<table><tr><th>project</th><th>symbol</th><th>tvl</th><th>apy %</th></tr>`;
+    (d.pools||[]).slice(0,12).forEach(p=>{ html += `<tr><td><b>${p.project}</b></td><td>${p.symbol}</td><td>$${fmt(Math.round(p.tvl_usd||0))}</td><td>${p.apy_pct==null?'—':fmt(p.apy_pct)}</td></tr>`; });
+    $('yOut').innerHTML = html + `</table><div class="hint">${d.note||''}</div>`;
+  }catch(e){ $('yOut').textContent='failed: '+e; }
+};
+
+/* ── quote → confirm → sign → execute ── */
+let LAST_QUOTE = null;
+$('qGo').onclick = async ()=>{
+  $('qStatus').textContent='quoting…'; $('qStatus').className='out'; $('qConfirm').innerHTML='';
+  const p = new URLSearchParams({inputMint:$('qIn').value.trim(), outputMint:$('qOut').value.trim(),
+    amount:$('qAmt').value.trim(), slippageBps:$('qSlip').value||'50', taker:WALLET||''});
+  let d, r;
+  try{ r = await fetch(`${API}/api/defi/quote?${p}`, {credentials:'include'}); d = await r.json(); }
+  catch(e){ $('qStatus').textContent='quote failed: '+e; $('qStatus').className='out err'; return; }
+  if(!r.ok){ $('qStatus').textContent = `✗ ${d.detail||JSON.stringify(d)}`; $('qStatus').className='out err'; return; }
+  if(d.ok===false){ $('qStatus').textContent = `✗ ${d.error}`; $('qStatus').className='out err'; return; }
+  LAST_QUOTE = d;
+  $('qStatus').textContent = d.blocked ? `⛔ BLOCKED: ${d.block_reason}` : '✓ quote + simulation + shield verdict';
+  $('qStatus').className = 'out ' + (d.blocked?'err':'ok');
+  const q = d.quote, s = d.simulation||{}, sh = d.shield||{};
+  const usdRisk = q.usd_in;
+  $('qConfirm').innerHTML = `
+    <div class="confirm" data-testid="defi-confirm-panel">
+      <h4>CONFIRM — you sign every trade by hand, no auto-approve</h4>
+      <div class="kv">
+        <span class="k">pair</span><span class="val">${$('qIn').value.trim().slice(0,10)}… → ${$('qOut').value.trim().slice(0,10)}…</span>
+        <span class="k">in (base units)</span><span class="val">${q.in_amount}</span>
+        <span class="k">out (quoted)</span><span class="val">${q.out_amount ?? '—'}</span>
+        <span class="k">price impact</span><span class="val">${q.price_impact_bps} bps</span>
+        <span class="k">slippage</span><span class="val">${q.slippage_bps} bps</span>
+        <span class="k">shield verdict</span><span class="val v-${sh.verdict}">${sh.verdict}</span>
+        <span class="k">simulated out</span><span class="val">${s.simulated_out_ui ?? '—'} (divergence ${s.divergence_bps ?? '—'} bps)</span>
+        <span class="k">network fee</span><span class="val">standard Solana fee — shown in Phantom pre-signature</span>
+        <span class="k">USD at risk</span><span class="val">$${fmt(usdRisk)}</span>
+      </div>
+      <div class="row">
+        <button class="btn danger" id="signBtn" data-testid="defi-sign-btn"
+          ${(!d.transaction || !HEALTH?.live_enabled || !phantom) ? 'disabled' : ''}>Sign in Phantom &amp; execute</button>
+        <span class="hint">${!d.transaction ? (d.blocked?'blocked quotes return no signable transaction':'no transaction (connect Phantom as taker)')
+          : !HEALTH?.live_enabled ? 'live execution OFF — operator flag' : !phantom ? 'connect Phantom to sign' : 'a real click, every trade'}</span>
+      </div>
+    </div>`;
+  const sb = $('signBtn');
+  if(sb && !sb.disabled) sb.onclick = signAndExecute;
+};
+
+async function signAndExecute(){
+  if(!LAST_QUOTE?.transaction || !phantom) return;
+  $('qStatus').textContent='awaiting Phantom signature…';
+  try{
+    const raw = Uint8Array.from(atob(LAST_QUOTE.transaction), c=>c.charCodeAt(0));
+    const vtx = solanaWeb3.VersionedTransaction.deserialize(raw);
+    const signed = await phantom.signTransaction(vtx);
+    const b64 = btoa(String.fromCharCode(...signed.serialize()));
+    const r = await fetch(`${API}/api/defi/execute`, {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({signedTransaction:b64, requestId:LAST_QUOTE.requestId, wallet:WALLET})});
+    const d = await r.json();
+    $('qStatus').textContent = r.ok ? `✓ ${d.outcome} — sig ${d.signature||'—'}` : `✗ ${d.detail||JSON.stringify(d)}`;
+    $('qStatus').className = 'out ' + (r.ok?'ok':'err');
+  }catch(e){ $('qStatus').textContent='✗ '+(e.message||e); $('qStatus').className='out err'; }
+}
+
+$('histGo').onclick = async ()=>{
+  try{
+    const d = await fetch(`${API}/api/defi/history`, {credentials:'include'}).then(r=>r.json());
+    if(!(d.trades||[]).length){ $('histOut').textContent='no trades recorded'; return; }
+    let html = `<table><tr><th>ts</th><th>pair</th><th>usd</th><th>outcome</th><th>sig</th></tr>`;
+    d.trades.forEach(t=>{ html+=`<tr><td>${(t.ts||'').slice(0,19)}</td><td>${(t.pair||'').slice(0,26)}…</td><td>$${fmt(t.usd_in)}</td><td>${t.outcome}</td><td>${(t.signature||'—').slice(0,14)}…</td></tr>`; });
+    $('histOut').innerHTML = html+'</table>';
+  }catch(e){ $('histOut').textContent='failed: '+e; }
+};
+
+/* ── janitor ── */
+$('jScan').onclick = async ()=>{
+  if(!WALLET){ $('jOut').textContent='load a wallet first'; return; }
+  $('jOut').textContent='scanning…'; $('jBuild').innerHTML='';
+  try{
+    const r = await fetch(`${API}/api/defi/janitor/scan?wallet=${WALLET}`, {credentials:'include'});
+    const d = await r.json();
+    if(!r.ok){ $('jOut').textContent='✗ '+(d.detail||JSON.stringify(d)); $('jOut').className='out err'; return; }
+    const b = d.buckets;
+    let html = `<table><tr><th>bucket</th><th>count</th><th>detail</th></tr>`;
+    for(const k of ['empty_ata','empty_ata_2022','dust','openorders','stake_deactivated','PROTECTED']){
+      html += `<tr><td><b>${k}</b></td><td>${b[k].length}</td><td>${b[k].slice(0,3).map(a=>a.account?.slice(0,8)+'… '+(a.why||'')).join(' · ')||'—'}</td></tr>`;
+    }
+    $('jOut').innerHTML = html + `</table><div class="hint">${(d.notes||[]).join(' · ')}</div>`;
+    const closeable = [...b.empty_ata, ...b.empty_ata_2022].map(a=>a.account);
+    if(closeable.length){
+      $('jBuild').innerHTML = `<div class="row"><button class="btn" id="jDoBuild" data-testid="janitor-build-btn">Build close batch (${closeable.length})</button></div><div class="out" id="jBuildOut"></div>`;
+      $('jDoBuild').onclick = ()=>janitorBuild(closeable);
+    }
+  }catch(e){ $('jOut').textContent='scan failed: '+e; $('jOut').className='out err'; }
+};
+$('jEst').onclick = async ()=>{
+  if(!WALLET) return;
+  $('jOut').textContent='estimating…';
+  try{
+    const r = await fetch(`${API}/api/defi/janitor/estimate?wallet=${WALLET}`, {credentials:'include'});
+    const d = await r.json();
+    $('jOut').textContent = r.ok
+      ? `closeable: ${d.closeable_accounts} · rent ${d.rent_recoverable_sol} SOL · net ${d.net_recoverable_sol} SOL (fee ${d.est_network_fee_sol} SOL, integrator ${d.integrator_fee_bps} bps)`
+      : '✗ '+(d.detail||JSON.stringify(d));
+  }catch(e){ $('jOut').textContent='estimate failed: '+e; }
+};
+async function janitorBuild(accounts){
+  const out = $('jBuildOut'); out.textContent='building (re-verifying every account)…';
+  try{
+    const r = await fetch(`${API}/api/defi/janitor/build`, {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({wallet:WALLET, action:'close', accounts})});
+    const d = await r.json();
+    if(!r.ok){ out.textContent='✗ '+(d.detail||JSON.stringify(d)); out.className='out err'; return; }
+    const c = d.confirmation;
+    out.innerHTML = `<div class="confirm"><h4>CONFIRM CLOSE BATCH</h4><div class="kv">
+      <span class="k">accounts</span><span class="val">${c.account_count}</span>
+      <span class="k">SOL recovered</span><span class="val">${c.sol_recovered}</span>
+      <span class="k">network fee</span><span class="val">${c.network_fee_sol} SOL</span>
+      <span class="k">integrator fee</span><span class="val">${c.integrator_fee_bps} bps (${c.integrator_fee_sol} SOL)</span>
+      <span class="k">net</span><span class="val">${c.net_sol} SOL</span>
+      <span class="k">burn line</span><span class="val">${(c.burn_line||[]).join(' · ')}</span></div>
+      <div class="row"><button class="btn danger" id="jSign" ${phantom?'':'disabled'} data-testid="janitor-sign-btn">Sign &amp; broadcast in Phantom (${d.transactions.length} tx)</button></div></div>`;
+    $('jSign').onclick = async ()=>{
+      for(const b64 of d.transactions){
+        const bytes = Uint8Array.from(atob(b64), ch=>ch.charCodeAt(0));
+        const tx = solanaWeb3.Transaction.from(bytes);
+        const {signature} = await phantom.signAndSendTransaction(tx);
+        out.textContent = `broadcast ${signature.slice(0,20)}… — verifying + booking via settlement rail`;
+        await new Promise(res=>setTimeout(res, 8000));
+        const sr = await fetch(`${API}/api/defi/janitor/submit`, {method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({wallet:WALLET, signature})});
+        const sd = await sr.json();
+        out.textContent = sr.ok ? `✓ recovered ${sd.recovered_sol} SOL — booked=${sd.booked}` : '✗ '+(sd.detail||JSON.stringify(sd));
+      }
+    };
+  }catch(e){ out.textContent='build failed: '+e; out.className='out err'; }
+}
+
+/* ── triggers ── */
+$('tBuild').onclick = async ()=>{
+  const out = $('tOut2'); out.textContent='building…';
+  try{
+    const r = await fetch(`${API}/api/defi/trigger/build`, {method:'POST', credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({wallet:WALLET, inputMint:$('tIn').value.trim(), outputMint:$('tOut').value.trim(),
+        makingAmount:$('tAmt').value.trim(), triggerPriceUsd:Number($('tPrice').value),
+        triggerCondition:$('tCond').value, expiresAt:$('tExp').value.trim()||null})});
+    const d = await r.json();
+    if(!r.ok){ out.textContent='✗ '+(d.detail||JSON.stringify(d)); out.className='out err'; return; }
+    out.innerHTML = `<div class="confirm"><h4>CONFIRM TRIGGER ORDER</h4>
+      <div class="kv">
+        <span class="k">USD locked</span><span class="val">$${d.confirmation.usd_locked}</span>
+        <span class="k">trigger</span><span class="val">${d.confirmation.condition} $${d.confirmation.trigger_price_usd}</span>
+        <span class="k">slippage</span><span class="val">${d.confirmation.slippage_bps} bps</span>
+      </div>
+      <div class="hint">${d.confirmation.plain_language}</div>
+      <div class="row"><button class="btn danger" id="tSign" ${(!d.transaction||!phantom)?'disabled':''} data-testid="trigger-sign-btn">Sign in Phantom &amp; place order</button>
+      ${!phantom?'<span class="hint">connect Phantom to sign</span>':''}</div></div>`;
+    const sb = document.getElementById('tSign');
+    if(sb && !sb.disabled) sb.onclick = async ()=>{
+      try{
+        const raw = Uint8Array.from(atob(d.transaction), c=>c.charCodeAt(0));
+        let tx;
+        try{ tx = solanaWeb3.VersionedTransaction.deserialize(raw); }
+        catch(_){ tx = solanaWeb3.Transaction.from(raw); }
+        const signed = await phantom.signTransaction(tx);
+        const b64 = btoa(String.fromCharCode(...signed.serialize()));
+        const sr = await fetch(`${API}/api/defi/trigger/submit`, {method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({signedTransaction:b64, requestId:d.requestId})});
+        const sd = await sr.json();
+        out.textContent = sr.ok ? `✓ order placed — sig ${sd.signature||'—'} (funds vault-locked while open)`
+                                : '✗ '+(sd.detail||JSON.stringify(sd));
+        out.className = 'out ' + (sr.ok?'ok':'err');
+      }catch(e){ out.textContent='✗ '+(e.message||e); out.className='out err'; }
+    };
+  }catch(e){ out.textContent='✗ '+e; out.className='out err'; }
+};
+$('tOrders').onclick = async ()=>{
+  const out = $('tOut2'); out.textContent='loading…';
+  try{
+    const r = await fetch(`${API}/api/defi/trigger/orders?wallet=${WALLET}`, {credentials:'include'});
+    const d = await r.json();
+    out.textContent = r.ok ? (d.ok ? `${(d.orders||[]).length} open orders (${d.locked_note})` : '✗ '+d.error)
+                           : '✗ '+(d.detail||JSON.stringify(d));
+  }catch(e){ out.textContent='✗ '+e; }
+};
+
+/* ── earn ── */
+$('eMkts').onclick = async ()=>{
+  $('eOut').textContent='loading markets…';
+  try{
+    const d = await fetch(`${API}/api/defi/earn/markets`).then(r=>r.json());
+    let html = `<table><tr><th>kind</th><th>protocol</th><th>symbol</th><th>apy %</th><th>tvl</th><th>shield</th></tr>`;
+    (d.markets||[]).forEach(m=>{ html+=`<tr><td>${m.kind}</td><td><b>${m.protocol}</b></td><td>${m.symbol||'—'}</td>
+      <td>${m.apy_pct==null?'—':fmt(m.apy_pct)} <span style="color:var(--dim2)">(${m.apy_label})</span></td>
+      <td>$${fmt(Math.round(m.tvl_usd||0))}</td><td class="v-${m.shield_verdict}">${m.shield_verdict}</td></tr>`; });
+    $('eOut').innerHTML = html + `</table><div class="hint">deposits enabled: ${d.deposits_enabled} · allowed protocols: ${(d.allowed_protocols||[]).join(', ')||'none (empty = no deposits anywhere)'} · excluded: ${d.excluded_count} · ${d.kinds_note}</div>`;
+  }catch(e){ $('eOut').textContent='failed: '+e; }
+};
+$('ePos').onclick = async ()=>{
+  if(!WALLET){ $('eOut').textContent='load a wallet first'; return; }
+  try{
+    const r = await fetch(`${API}/api/defi/earn/positions?wallet=${WALLET}`, {credentials:'include'});
+    const d = await r.json();
+    if(!(d.positions||[]).length){ $('eOut').textContent='no earn positions'; return; }
+    $('eOut').innerHTML = d.positions.map(p=>`${p.symbol}: shares ${p.shares} · underlying ${p.underlying_balance} — <b>${p.accrual_label}</b>`).join('<br>');
+  }catch(e){ $('eOut').textContent='failed: '+e; }
+};
+
+/* ── sentinel ── */
+$('sAdd').onclick = async ()=>{
+  const m = $('sWatch').value.trim(); if(!m) return;
+  const r = await fetch(`${API}/api/defi/sentinel/watch`, {method:'POST', credentials:'include',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({mint:m})});
+  $('sOut').textContent = r.ok ? `✓ watching ${m.slice(0,12)}…` : '✗ watch failed';
+};
+$('sPoll').onclick = async ()=>{
+  if(!WALLET){ $('sOut').textContent='load a wallet first'; return; }
+  $('sOut').textContent='polling (re-running shield)…';
+  try{
+    const r = await fetch(`${API}/api/defi/sentinel/alerts?wallet=${WALLET}`, {credentials:'include'});
+    const d = await r.json();
+    if(!r.ok){ $('sOut').textContent='✗ '+(d.detail||JSON.stringify(d)); return; }
+    $('sOut').innerHTML = (d.alerts||[]).length
+      ? d.alerts.map(a=>`⚠ [${a.kind}] ${a.message}`).join('<br>')
+      : `no alerts · checked ${(d.checked_mints||[]).length} mints at ${d.polled_at}`;
+  }catch(e){ $('sOut').textContent='✗ '+e; }
+};
+
+/* ── treasury (gold hunter) ── */
+const ak = ()=>$('akIn').value.trim();
+$('ghStatus').onclick = async ()=>{
+  $('ghOut').textContent='loading…';
+  try{
+    const d = await fetch(`${API}/api/goldhunter/treasury/status`).then(r=>r.json());
+    const rc = d.reconcile||{};
+    $('ghOut').innerHTML = `net profit (verified): <b>$${fmt(d.net_profit)}</b><br>`+
+      `circuit breaker: ${d.circuit_breaker?'⛔ ACTIVE':'clear'} · autopay flag: ${d.autopay_flag} · loop: ${d.treasury_running?'running':'stopped'}<br>`+
+      `distribution gates: ${d.distribution_gates?.pass?'✓ pass':'✗ '+d.distribution_gates?.reason}<br>`+
+      `reconcile last-run: <b>${rc.last_run||'never'}</b> · unverified income rows: <b>${rc.unverified_count ?? '—'}</b>`;
+  }catch(e){ $('ghOut').textContent='✗ '+e; }
+};
+$('ghReconcile').onclick = async ()=>{
+  if(!ak()){ $('ghOut').textContent='admin key required for reconcile'; return; }
+  $('ghOut').textContent='reconciling every income row against its rail…';
+  try{
+    const r = await fetch(`${API}/api/goldhunter/vault/reconcile`, {method:'POST', headers:{'X-Admin-Key':ak()}});
+    const d = await r.json();
+    $('ghOut').textContent = r.ok ? `✓ checked ${d.checked} · verified ${d.verified} · unverified ${d.unverified}` : '✗ '+(d.detail||JSON.stringify(d));
+  }catch(e){ $('ghOut').textContent='✗ '+e; }
+};
+
+await loadHealth();
+setInterval(loadHealth, 30_000);
+</script>
+</body>
+</html>

@@ -25,7 +25,6 @@ load_dotenv()
 
 # ── original backends, mounted as sub-apps ────────────────────────────────────
 from revenue_system.unified_server import app as revenue_app
-from defi_simulator.api.server import app as defi_app
 from yabbai_ops.server import app as ops_app
 from ai_router import router as ai_router
 from goldscout_router import router as goldscout_router
@@ -34,12 +33,19 @@ from wallet_router import router as wallet_router
 from supabase_router import router as supabase_router
 from realm_router import router as realm_router
 
-# health aliases so every service answers at <prefix>/health (the hub polls this)
-@defi_app.get("/health")
-async def _defi_health():
-    return {"ok": True, "app": "yabbai-defi-simulator", "custodial": False,
-            "real_funds": False, "ts": datetime.now(timezone.utc).isoformat()}
+# live DeFi layer — REPLACES the paper simulator at /api/defi (WS3). The old
+# defi_simulator engine now lives on as defi/simulation.py, the mandatory dry-run.
+from defi.service import router as defi_router
+from defi.janitor import router as defi_janitor_router
+from defi.sentinel import router as defi_sentinel_router
+from defi.harvester import router as defi_harvester_router
+from defi.trigger import router as defi_trigger_router
+from defi.earn import router as defi_earn_router
 
+# Gold Hunter — settlement-gated, nothing autostarts (WS1)
+from revenue_system.defi_backend_patched.server import app as goldhunter_app, _migrate as goldhunter_migrate
+
+# health aliases so every service answers at <prefix>/health (the hub polls this)
 @ops_app.get("/health")
 async def _ops_health():
     return {"ok": True, "app": "yabbai-ops", "ts": datetime.now(timezone.utc).isoformat()}
@@ -98,6 +104,7 @@ async def network_status():
         "defi":      {"live": True, "prefix": "/api/defi"},
         "ops":       {"live": True, "prefix": "/api/ops"},
         "realm":     {"live": True, "prefix": "/api/realm"},
+        "goldhunter": {"live": True, "prefix": "/api/goldhunter"},
     }
     return {"gateway": "healthy", "version": "2.0.0",
             "services": services, "all_live": all(s["live"] for s in services.values()),
@@ -118,10 +125,27 @@ async def put_settings(payload: dict, user=Depends(require_director)):
 
 # ── mount the original backends ───────────────────────────────────────────────
 app.mount("/api/revenue", revenue_app)
-app.mount("/api/defi", defi_app)
 app.mount("/api/ops", ops_app)
+app.mount("/api/goldhunter", goldhunter_app)
+app.include_router(defi_router)
+app.include_router(defi_janitor_router)
+app.include_router(defi_sentinel_router)
+app.include_router(defi_harvester_router)
+app.include_router(defi_trigger_router)
+app.include_router(defi_earn_router)
 app.include_router(ai_router)
 app.include_router(goldscout_router)
+
+
+# mounted sub-app lifespans don't run under Starlette mounts — run the Gold Hunter
+# data migration (hygiene only, no loops) from the gateway startup instead.
+@app.on_event("startup")
+async def _run_goldhunter_migration():
+    try:
+        await goldhunter_migrate()
+    except Exception as e:  # non-fatal: migration re-runs next boot
+        import logging
+        logging.getLogger("gateway").error(f"goldhunter migration failed: {e}")
 app.include_router(auth_router)
 app.include_router(wallet_router)
 app.include_router(supabase_router)

@@ -19,14 +19,43 @@ reached is reported as "unknown", never silently treated as "safe". A LOW score 
 """
 
 import asyncio
+import logging
 from typing import Optional
 
 import httpx
 
+logger = logging.getLogger("goldscout.safety")
+
 SOLANA_RPC = "https://api.mainnet-beta.solana.com"
 GOPLUS_SOL = "https://api.gopluslabs.io/api/v1/solana/token_security"
 GOPLUS_EVM = "https://api.gopluslabs.io/api/v1/token_security"
+# Jupiter Shield — free on-chain risk signals (lite-api, no key, no rate budget).
+# PREFERRED over Tavily wherever it answers the same question: Tavily is capped
+# at ~12 scans/month on the Dev tier; /shield is not.
+JUP_SHIELD = "https://lite-api.jup.ag/ultra/v1/shield"
 TIMEOUT = httpx.Timeout(12.0, connect=6.0)
+
+# shield warning types folded into the risk score. Freeze/mint authority are
+# EXCLUDED here — the Solana RPC source already scores those (no double count).
+_SHIELD_WEIGHTS = {
+    "NOT_VERIFIED": ("warning", 15, "Jupiter Shield: token is not verified"),
+    "LOW_ORGANIC_ACTIVITY": ("warning", 20, "Jupiter Shield: low organic trading activity"),
+    "NEW_LISTING": ("info", 10, "Jupiter Shield: newly listed token"),
+    "HAS_PERMANENT_DELEGATE": ("warning", 35, "Jupiter Shield: permanent delegate can move balances"),
+    "TRANSFER_TAX": ("warning", 20, "Jupiter Shield: transfer tax detected"),
+}
+
+
+async def _jupiter_shield(mint: str) -> dict:
+    """On-chain risk warnings from Jupiter Shield (zero Tavily credits)."""
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT) as c:
+            r = await c.get(JUP_SHIELD, params={"mints": mint})
+            r.raise_for_status()
+            warnings = ((r.json() or {}).get("warnings") or {}).get(mint, [])
+        return {"source": "jupiter_shield", "status": "ok", "warnings": warnings}
+    except Exception as e:
+        return {"source": "jupiter_shield", "status": "unknown", "reason": str(e)}
 
 # GoPlus numeric chain ids for the EVM path
 EVM_CHAINS = {"ethereum": "1", "bsc": "56", "polygon": "137", "arbitrum": "42161",
@@ -96,7 +125,7 @@ async def _goplus(mint: str, chain: str) -> dict:
         return {"source": "goplus", "status": "unknown", "reason": str(e)}
 
 
-def _base_score(onchain: dict, goplus: dict, heuristic_score: int) -> tuple[int, list[str], list[str]]:
+def _base_score(onchain: dict, goplus: dict, jshield: dict, heuristic_score: int) -> tuple[int, list[str], list[str]]:
     """Merge sources into a 0-100 risk score. Higher = riskier."""
     score = 0
     reasons: list[str] = []
@@ -122,6 +151,25 @@ def _base_score(onchain: dict, goplus: dict, heuristic_score: int) -> tuple[int,
             reasons.append("GoPlus found no listed security flags (not a guarantee)")
     else:
         unknowns.append(f"GoPlus: {goplus.get('reason', 'unreachable')}")
+
+    # Jupiter Shield — on-chain warnings (freeze/mint excluded: RPC already scored them)
+    if jshield.get("status") == "ok":
+        shield_flags = 0
+        for w in jshield.get("warnings", []):
+            wtype = (w.get("type") or "").upper()
+            if wtype in ("HAS_FREEZE_AUTHORITY", "HAS_MINT_AUTHORITY"):
+                continue
+            sev, weight, msg = _SHIELD_WEIGHTS.get(
+                wtype, ("info", 10, f"Jupiter Shield: {w.get('message') or wtype}"))
+            score += weight
+            reasons.append(msg)
+            shield_flags += 1
+        if not jshield.get("warnings"):
+            reasons.append("Jupiter Shield reports no warnings (not a guarantee)")
+        logger.info(f"goldscout safety: shield-sourced signals folded in "
+                    f"({shield_flags} scored flags, tavily_calls=0)")
+    else:
+        unknowns.append(f"Jupiter Shield: {jshield.get('reason', 'unreachable')}")
 
     # Fold in the text heuristic (from scam_analysis) at reduced weight
     score += int(heuristic_score * 0.3)
@@ -157,12 +205,14 @@ async def check_token(mint: str, chain: str = "solana", name: str = "",
                       heuristic_score: int = 0, with_ai: bool = False) -> dict:
     """Full real safety check for one token. Read-only."""
     if chain == "solana":
-        onchain, goplus = await asyncio.gather(_sol_authorities(mint), _goplus(mint, chain))
+        onchain, goplus, jshield = await asyncio.gather(
+            _sol_authorities(mint), _goplus(mint, chain), _jupiter_shield(mint))
     else:
         onchain = {"source": "solana_rpc", "status": "skipped", "reason": "non-Solana chain"}
+        jshield = {"source": "jupiter_shield", "status": "skipped", "reason": "non-Solana chain"}
         goplus = await _goplus(mint, chain)
 
-    score, reasons, unknowns = _base_score(onchain, goplus, heuristic_score)
+    score, reasons, unknowns = _base_score(onchain, goplus, jshield, heuristic_score)
     level = _level(score)
     ai_note = await _ai_second_opinion(name or mint, reasons, unknowns) if with_ai else None
 
@@ -176,7 +226,8 @@ async def check_token(mint: str, chain: str = "solana", name: str = "",
         "risk_score": score, "risk_level": level, "verdict": verdict,
         "reasons": reasons,
         "unchecked": unknowns,          # sources we couldn't reach — never assume safe
-        "sources": {"onchain": onchain.get("status"), "goplus": goplus.get("status")},
+        "sources": {"onchain": onchain.get("status"), "goplus": goplus.get("status"),
+                    "jupiter_shield": jshield.get("status")},
         "ai_note": ai_note,
         "disclaimer": "LOW risk = no hard flags found, not 'safe'. Nothing here moves funds; "
                       "you verify and act in your own wallet.",

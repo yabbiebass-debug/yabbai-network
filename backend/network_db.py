@@ -21,7 +21,7 @@ SECRET_FIELDS = {
     "nvidia_api_key", "yabbai_api_key", "groq_api_key", "grok_api_key",
     "cerebras_api_key", "google_api_key", "openrouter_api_key",
     "supabase_service_key", "stripe_secret_key", "paypal_secret",
-    "google_client_secret", "tavily_api_key",
+    "google_client_secret", "tavily_api_key", "jupiter_api_key",
 }
 
 DEFAULTS = {
@@ -90,6 +90,7 @@ async def get_raw_settings() -> dict:
         "openrouter_base_url": os.environ.get("OPENROUTER_BASE_URL"),
         "openrouter_paid_model": os.environ.get("OPENROUTER_PAID_MODEL"),
         "tavily_api_key": os.environ.get("TAVILY_API_KEY"),
+        "jupiter_api_key": os.environ.get("JUPITER_API_KEY"),
     }
     # Integer envs (interval etc.) — coerce safely; blank/invalid keeps merged value.
     int_env_map = {

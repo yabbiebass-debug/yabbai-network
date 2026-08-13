@@ -47,6 +47,14 @@ def _headers(key):
     return {"apikey": key, "Authorization": f"Bearer {key}", "Accept": "application/json"}
 
 
+@router.get("/public-config")
+async def public_config():
+    """Publishable (by-design public) Supabase config for the static hub page.
+    Values come from env only — nothing hardcoded in frontend source."""
+    return {"url": os.environ.get("SUPABASE_PUBLIC_URL", ""),
+            "publishable_key": os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")}
+
+
 @router.get("/status")
 async def status(request: Request, authorization: Optional[str] = Header(None)):
     await _require_user(request, authorization)

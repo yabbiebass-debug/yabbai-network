@@ -122,10 +122,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 /* ══════════════════════════════════════════════════════════
-   CONFIG — paste your values, then deploy
+   CONFIG — served by the backend from env (SUPABASE_PUBLIC_URL +
+   SUPABASE_PUBLISHABLE_KEY). No hardcoded values in source.
    ══════════════════════════════════════════════════════════ */
-const SUPABASE_URL      = 'https://gecwxvwziktvaiwdhzeg.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_tx42inJt-e9AqA7wFfDTxw_wbR5BmDD';
+const _sbCfg = await fetch('/api/supabase/public-config').then(r=>r.ok?r.json():null).catch(()=>null);
+const SUPABASE_URL      = _sbCfg?.url || '';
+const SUPABASE_ANON_KEY = _sbCfg?.publishable_key || '';
 
 const ORIGIN = window.location.origin;
 // Web surfaces are served from this same origin under /<surface>/index.html
@@ -140,12 +142,13 @@ const SURFACES = {
 };
 
 // All Python backends are unified under this origin at /api/<name>
+// Same-origin service bases — relative URLs ONLY (no scheme, no host, no port).
 const PY = {
-  revenue:  ORIGIN + '/api/revenue',
-  ai:       ORIGIN + '/api/ai',
-  goldscout:ORIGIN + '/api/goldscout',
-  defi:     ORIGIN + '/api/defi',
-  ops:      ORIGIN + '/api/ops',
+  revenue:  '/api/revenue',
+  ai:       '/api/ai',
+  goldscout:'/api/goldscout',
+  defi:     '/api/defi',
+  ops:      '/api/ops',
 };
 /* ═════════════════════════════════════════════════════════= */
 
@@ -164,8 +167,8 @@ let adminKey = sessionStorage.getItem('yabbai_admin_key') || '';
 let svcTimer  = null;
 
 /* ── guard ── */
-if(SUPABASE_URL.startsWith('PASTE')){
-  document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate"><h1>YABBAI<b>.</b>NETWORK</h1><p>Paste your Supabase URL + anon key into the CONFIG block at the top of hub/index.html. See README.md for setup.</p></div></div>`;
+if(!SUPABASE_URL || !SUPABASE_ANON_KEY){
+  document.getElementById('app').innerHTML=`<div class="gatewrap"><div class="gate"><h1>YABBAI<b>.</b>NETWORK</h1><p>Backend config missing: set SUPABASE_PUBLIC_URL and SUPABASE_PUBLISHABLE_KEY in the backend environment, then reload.</p></div></div>`;
   throw new Error('config');
 }
 const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -192,14 +195,25 @@ async function ensureAuth(){
 }
 
 /* ════════════════════ PYTHON SERVICES ════════════════════ */
-async function checkPythonService(name, url){
+// Single source of truth: same-origin ${base}/health probes. Relative URLs only.
+const BACKENDS = [
+  { id:'revenue',   name:'Revenue System', base:'/api/revenue'   },
+  { id:'ai',        name:'YABBAI AI',      base:'/api/ai'        },
+  { id:'goldscout', name:'GoldScout',      base:'/api/goldscout' },
+  { id:'defi',      name:'DeFi',           base:'/api/defi'      },
+  { id:'ops',       name:'Ops Cockpit',    base:'/api/ops'       },
+];
+
+async function checkPythonService(name, base){
   // Emergent containers cold-start slowly. Retry 3x with an 8s timeout and
   // backoff (1.5s, 3s, 4.5s) so a first-request 503 doesn't stick "offline".
   const backoff = [1500, 3000, 4500];
   for(let i=0; i<=backoff.length; i++){
     try{
-      const r = await fetch(`${url}/health`, { signal: AbortSignal.timeout(8000) });
-      if(r.ok) return true;
+      const r = await fetch(`${base}/health`, { signal: AbortSignal.timeout(8000) });
+      // Non-JSON content-type = a 404 falling through to the SPA → DOWN, not UP.
+      const ct = r.headers.get('content-type') || '';
+      if(r.ok && ct.includes('application/json')) return true;
     } catch{ /* fall through to retry */ }
     if(i < backoff.length) await new Promise(res => setTimeout(res, backoff[i]));
   }
@@ -222,13 +236,11 @@ async function loadRevenueMeta(){
 }
 
 async function pollServices(){
-  const names = ['revenue','ai','goldscout','defi','ops'];
-  const urls  = [PY.revenue, PY.ai, PY.goldscout, PY.defi, PY.ops];
   // Stagger the five probes ~200ms apart so we don't hammer a cold container at once.
-  const checks = await Promise.all(names.map((name,i) =>
-    new Promise(res => setTimeout(async () => res(await checkPythonService(name, urls[i])), i*200))
+  const checks = await Promise.all(BACKENDS.map((b,i) =>
+    new Promise(res => setTimeout(async () => res(await checkPythonService(b.id, b.base)), i*200))
   ));
-  names.forEach((k,i) => { SVC[k].live = checks[i]; });
+  BACKENDS.forEach((b,i) => { SVC[b.id].live = checks[i]; });
   if(SVC.revenue.live) await loadRevenueMeta();
   renderServices();
   renderStrip();
@@ -340,7 +352,7 @@ function shell(){
 
     <!-- Python surfaces -->
     <div class="sec">
-      <div class="eyebrow">Python Backends — local · Railway · Render · Fly</div>
+      <div class="eyebrow">Python Services — one origin, one gateway</div>
       <div class="grid" id="pySurfaces"></div>
     </div>
 
@@ -405,20 +417,13 @@ function renderStrip(){
 function renderServices(){
   const el = document.getElementById('svcrow');
   if(!el) return;
-  const svcs = [
-    { k:'revenue',   label:'Revenue',   port:7870 },
-    { k:'ai',        label:'YABBAI AI', port:7860 },
-    { k:'goldscout', label:'GoldScout', port:8001 },
-    { k:'defi',      label:'DeFi Sim',  port:8002 },
-    { k:'ops',       label:'Ops',       port:7880 },
-  ];
-  el.innerHTML = svcs.map(s => {
-    const state = SVC[s.k].live ? 'live' : (adminKey ? 'offline' : 'checking');
-    return `<div class="svc ${state}">
+  el.innerHTML = BACKENDS.map(b => {
+    const state = SVC[b.id].live ? 'live' : (adminKey ? 'offline' : 'checking');
+    return `<div class="svc ${state}" data-testid="svc-${b.id}">
       <span class="indicator"></span>
-      <span class="sname">${s.label}</span>
-      <span class="sport">/api/${s.k}</span>
-      ${s.k==='revenue'&&SVC.revenue.ks?'<span style="color:var(--red);font-size:9px">KILL-SW</span>':''}
+      <span class="sname">${b.name}</span>
+      <span class="sport">${b.base}</span>
+      ${b.id==='revenue'&&SVC.revenue.ks?'<span style="color:var(--red);font-size:9px">KILL-SW</span>':''}
     </div>`;
   }).join('');
   // re-render admin row kill-switch button
@@ -486,32 +491,26 @@ function renderWebSurfaces(){
 function renderPySurfaces(){
   const el = document.getElementById('pySurfaces');
   if(!el) return;
+  // Pure navigation cards — status lives ONLY in the same-origin panel above.
   const list = [
-    { k:'revenue',   url:ORIGIN+'/revsys/index.html',     who:'Director', t:'Revenue System',   port:'7870',
+    { k:'revenue',   url:ORIGIN+'/revsys/index.html',     who:'Director', t:'Revenue System',
       d:'Truth protocol · reconciled income only · capital gates (LOW/MED/HIGH) · kill-switch · 3 channels · EV orchestrator · compliance gate.' },
-    { k:'ai',        url:ORIGIN+'/ai/index.html',  who:'Director', t:'YABBAI AI',         port:'7860',
+    { k:'ai',        url:ORIGIN+'/ai/index.html',  who:'Director', t:'YABBAI AI',
       d:'Routed brain · autonomous agents · coding brain · multi-agent team · model pool · learning · hardware · Ollama · IDE.' },
-    { k:'goldscout', url:ORIGIN+'/goldscout/index.html', who:'Director', t:'GoldScout',         port:'8001',
+    { k:'goldscout', url:ORIGIN+'/goldscout/index.html', who:'Director', t:'GoldScout',
       d:'DeFi opportunity scanner · airdrop finder · quest tracker · testnet alerts · AI scam analysis · safety scoring.' },
-    { k:'defi',      url:ORIGIN+'/defisim/index.html',   who:'Director', t:'DeFi Simulator',    port:'8002',
-      d:'Paper trading engine · strategy backtests · risk gate · live price feeds · routing engine. Paper-only — no live trades on this deployment.' },
-    { k:'ops',       url:ORIGIN+'/opscockpit/index.html', who:'Director', t:'Ops Cockpit',        port:'7880',
+    { k:'defi',      url:ORIGIN+'/defi/index.html',   who:'Director', t:'DeFi — Live (Solana)',
+      d:'Portfolio · token search · Jupiter Shield safety · quotes with mandatory simulation · Phantom-signed execution (operator-gated) · janitor rent recovery.' },
+    { k:'ops',       url:ORIGIN+'/opscockpit/index.html', who:'Director', t:'Ops Cockpit',
       d:'Truth protocol v1 · compliance gate · decision engine · ops dashboard. Feeds into the Revenue System spine.' },
   ];
   el.innerHTML = list.map(s => {
     const live = SVC[s.k].live;
     const openUrl = adminKey ? `${s.url}${s.url.includes('?')?'&':'#'}ak=${encodeURIComponent(adminKey)}` : s.url;
-    return live
-      ? `<a class="scard py" href="${esc(openUrl)}" target="_blank" rel="noopener">
-           <span class="pybadge">live · :${s.port}</span>
-           <span class="who">${esc(s.who)}</span><h3><i>▸</i> ${esc(s.t)}</h3>
-           <p>${esc(s.d)}</p><span class="go">open →</span></a>`
-      : `<div class="scard py locked">
-           <span class="pybadge offline">offline · :${s.port}</span>
-           <span class="who">${esc(s.who)}</span><h3><i>▸</i> ${esc(s.t)}</h3>
-           <p>${esc(s.d)}</p>
-           <span class="go" style="color:var(--dim2)">start backend → connect</span>
-         </div>`;
+    return `<a class="scard py" href="${esc(openUrl)}" target="_blank" rel="noopener" data-testid="pycard-${s.k}">
+         <span class="pybadge${live?'':' offline'}">${live?'live':'offline'}</span>
+         <span class="who">${esc(s.who)}</span><h3><i>▸</i> ${esc(s.t)}</h3>
+         <p>${esc(s.d)}</p><span class="go">open →</span></a>`;
   }).join('');
 }
 

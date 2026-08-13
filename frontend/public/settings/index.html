@@ -108,6 +108,18 @@
     <div class="hint" style="margin-top:14px">Free key at <b>app.tavily.com</b>. Dev tier = <b>100 credits/month</b>, hard ceiling — GoldScout enforces this locally in Mongo, no fallback to stale results when exhausted. Cache is <b id="tvCacheTtl">24h</b> per query — repeat searches cost 0. Preview and production keep separate Mongo settings — paste here for preview, then again at <code>https://yabbai.network/settings/</code> after redeploy.</div>
   </div>
 
+  <div class="eyebrow">DeFi · Jupiter — quote &amp; relay key (no signing authority)</div>
+  <div class="card" id="jupCard">
+    <div class="chead"><h3><i>▸</i> Jupiter API key</h3><span class="keyset" id="jupKeyset">not set</span></div>
+    <label>Portal key (portal.jup.ag) — secret, stored server-side, never shown again. Env JUPITER_API_KEY always wins.</label>
+    <input type="password" id="jupiter_api_key" placeholder="paste Jupiter Portal key" data-testid="jupiter-key">
+    <div class="row">
+      <button class="btn sm green" id="jupTest" data-testid="jupiter-test">Save &amp; test — quote probe</button>
+    </div>
+    <div class="test" id="jupResult"></div>
+    <div class="hint" style="margin-top:12px">This key can only request quotes and relay <b>already-signed</b> transactions — it holds no signing authority. Live execution stays OFF until the operator flips <code>DEFI_LIVE_ENABLED</code>; the trade allowlist (<code>DEFI_ALLOWED_MINTS</code>) ships empty = nothing tradeable. Manage the DeFi surface at <a href="/defi/index.html" style="color:var(--purple)">/defi</a>.</div>
+  </div>
+
   <div class="eyebrow">Supabase — live Postgres data layer</div>
   <div class="card" id="sbCard">
     <div class="chead"><h3><i>▸</i> Supabase</h3><span class="keyset" id="sbKeyset">not set</span></div>
@@ -201,8 +213,38 @@ function render(){
   if(sb) sb.disabled = false;
   renderSupabase();
   renderTavily();
+  renderJupiter();
   loadRecovery();
   loadLearning();
+}
+
+async function renderJupiter(){
+  const badge = $('jupKeyset');
+  const ks = S.secrets_set && S.secrets_set.jupiter_api_key;
+  if(badge){ badge.textContent = ks ? 'configured' : 'not set'; badge.className = 'keyset '+(ks?'yes':''); }
+  const btn = $('jupTest'); if(btn) btn.onclick = jupiterTest;
+}
+
+async function jupiterTest(){
+  const res = $('jupResult'); res.className='test'; res.textContent='Saving & testing…';
+  const key = $('jupiter_api_key').value.trim();
+  if(key){
+    const put = await fetch(API+'/api/settings',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({jupiter_api_key:key})});
+    if(!put.ok){ res.className='test err'; res.textContent='✗ Could not save key ('+put.status+').'; return; }
+    $('jupiter_api_key').value='';
+    const badge=$('jupKeyset'); if(badge){ badge.textContent='configured'; badge.className='keyset yes'; }
+  }
+  let d;
+  try{
+    d = await fetch(API+'/api/defi/jupiter/status',{credentials:'include'}).then(r=>r.json());
+  }catch(e){ res.className='test err'; res.textContent='✗ Could not reach the DeFi service.'; return; }
+  if(d.probe_ok){
+    res.className='test ok';
+    res.textContent = `✓ Quote probe answered (key ${d.configured?'configured':'not set — free tier answered'}).`;
+  } else {
+    res.className='test err';
+    res.textContent = `✗ Probe failed${d.error?': '+d.error:''} (HTTP ${d.http_status ?? '—'}).`;
+  }
 }
 
 async function renderTavily(){
