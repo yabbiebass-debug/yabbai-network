@@ -26,8 +26,11 @@ def _sync_db():
     return pymongo.MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
 
 
+_LOOP = asyncio.new_event_loop()
+
+
 def run(coro):
-    return asyncio.new_event_loop().run_until_complete(coro)
+    return _LOOP.run_until_complete(coro)
 
 
 async def _fake_user(request, authorization):

@@ -110,7 +110,7 @@ async def compliance_check_outreach(request: Request, _: None = Depends(require_
 async def health():
     return {"status": "healthy", "version": "1.0.0",
             "real_funds_at_risk_without_human": False,
-            "trading_signer": "NoKeySigner (refuses all) — inject a real one to trade live",
+            "trading_signer": "NoKeySigner (refuses all) — live signing intentionally unsupported server-side (N1)",
             "ts": datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/status")

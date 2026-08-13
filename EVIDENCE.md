@@ -207,3 +207,31 @@ END STATE (preview): DEFI_LIVE_ENABLED=false · TRIGGER_ENABLED=false · HARVEST
 requirements.txt regenerated (solders==0.28.0 persisted — this was the production build blocker).
 ```
 
+
+---
+
+## PATCH SET v2 (2026-08-13) — storefront + LST shield + N1 copy fix
+```
+Applied VERBATIM (10 files): backend/defi/earn.py · backend/revenue_system/unified_server.py ·
+backend/server.py · backend/requirements.txt (identical) · frontend/public/hub/index.html ·
+backend/store/{__init__.py,products.json} · backend/tests/test_store.py ·
+frontend/public/store/index.html · OPERATOR_RUNBOOK.md (repo root)
+Pre-apply diff check: patch base matched the live tree — all code-review fixes preserved.
+
+1. py_compile earn.py unified_server.py store/__init__.py server.py → ALL 4 OK
+2. pytest tests/test_store.py → 4 passed (unlisted reasons correct; tampered webhook sig → 400 before any write)
+3. FINAL SWEEP re-run: N1 signing terms → ZERO · income writers outside settlement.py → ZERO ·
+   hub localhost/port refs → ZERO (font-weight:800 CSS only)
+   Full regression: tests/test_full_update.py + tests/test_store.py → 24/24 PASS (twice)
+   (harness fix: shared event loop in test_full_update.py — Motor client binds one loop)
+4. Deploy = OPERATOR ACTION (platform button). Preview verified; prod redeploy pending.
+5. PREVIEW /api/store/health → all 7 SKUs UNLISTED: 6× "asset file missing", complete-collection "price not set" —
+   the CORRECT dark state. stripe_key_configured:false, webhook_secret_configured:false.
+   PROD /api/store/health → 404 (patch not deployed yet, expected).
+6. PREVIEW /api/defi/earn/markets LST entries (live):
+   JITOSOL apy=5.08% tvl=$762.8M receipt_mint=J1toso1uCk3R… shield=info
+   MSOL    apy=6.30% tvl=$180.3M receipt_mint=mSoLzYCxHdYg… shield=info
+   BSOL    apy=5.17% tvl=$70.2M  receipt_mint=bSo13r4TkiE4… shield=info  ← resolved verdicts, not "unknown"
+7. /store/index.html renders (screenshot): "Buy once. Own it." + honest empty-shelf state.
+   Hub ⬢ Store chip present in served markup line 316 (renders post-auth; auth gate hides nav when signed out).
+```

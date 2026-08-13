@@ -87,8 +87,22 @@ async def _lend_markets(now: str, excluded: List[Dict]) -> List[Dict]:
     return out
 
 
+LST_MINTS = {  # issuer-doc verified (Marinade, Jito, BlazeStake, Sanctum)
+    "mSOL": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+    "JitoSOL": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+    "bSOL": "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1",
+    "INF": "5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm",
+}
+
+
 async def _lst_markets(now: str, excluded: List[Dict]) -> List[Dict]:
     pools = await jupiter.llama_pools()
+    _mints = [m for m in (LST_MINTS.get(LST_PROJECTS.get(p.get("project"))) for p in pools
+                          if (p.get("chain") or "").lower() == "solana"
+                          and p.get("project") in LST_PROJECTS) if m]
+    _sh = await jupiter.shield(list(set(_mints))) if _mints else {}
+    _warn = _sh.get("warnings") or {}
+    _sh_ok = not _sh.get("error")
     out = []
     for p in pools:
         if (p.get("chain") or "").lower() != "solana":
@@ -97,10 +111,14 @@ async def _lst_markets(now: str, excluded: List[Dict]) -> List[Dict]:
             continue
         apy = p.get("apy")
         tvl = p.get("tvlUsd") or 0
+        _mint = LST_MINTS.get(LST_PROJECTS.get(p.get("project")))
         entry = {"kind": "lst", "protocol": p.get("project"), "symbol": p.get("symbol"),
+                 "receipt_mint": _mint,
                  "apy_pct": apy, "apy_source": "defillama pools api",
                  "apy_label": APY_LABEL, "apy_ts": now, "tvl_usd": tvl,
-                 "risk_flags": RISK_FLAGS["lst"], "shield_verdict": "unknown",
+                 "risk_flags": RISK_FLAGS["lst"],
+                 "shield_verdict": (jupiter.shield_verdict(_warn.get(_mint, []))
+                                    if (_sh_ok and _mint) else "unknown"),
                  "pool_id": p.get("pool")}
         if apy is None:
             continue

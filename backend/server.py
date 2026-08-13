@@ -150,3 +150,7 @@ app.include_router(auth_router)
 app.include_router(wallet_router)
 app.include_router(supabase_router)
 app.include_router(realm_router)
+
+# Storefront — Stripe-settled digital products (income via settlement rail only)
+from store import router as store_router
+app.include_router(store_router)

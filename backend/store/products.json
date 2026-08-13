@@ -1,0 +1,12 @@
+{
+  "currency": "aud",
+  "skus": {
+    "aos-v2":              {"name": "Agency Onboarding System v2", "price_cents": 3900, "file": "aos-v2.zip"},
+    "aos-webdesigner":     {"name": "AOS — Web Designer Edition",  "price_cents": 4900, "file": "aos-webdesigner.zip"},
+    "aos-developer":       {"name": "AOS — Developer Edition",     "price_cents": 4900, "file": "aos-developer.zip"},
+    "aos-smm":             {"name": "AOS — SMM Edition",           "price_cents": 4900, "file": "aos-smm.zip"},
+    "orchestrator":        {"name": "The Orchestrator",            "price_cents": 2900, "file": "orchestrator.zip"},
+    "starter-bundle":      {"name": "Starter Bundle",              "price_cents": 5900, "file": "starter-bundle.zip"},
+    "complete-collection": {"name": "The Complete Collection",     "price_cents": null, "file": "complete-collection.zip"}
+  }
+}
