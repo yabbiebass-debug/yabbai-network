@@ -74,8 +74,15 @@ def earn_min_tvl_usd() -> float:       return env_float("EARN_MIN_TVL_USD", 50_0
 def earn_apy_sanity_pct() -> float:    return env_float("EARN_APY_SANITY_PCT", 20.0)
 
 
-def rpc_url() -> str:
-    return (os.environ.get("SOLANA_RPC_URL", "") or "").strip() or "https://api.mainnet-beta.solana.com"
+async def rpc_url() -> str:
+    """SOLANA_RPC_URL env always wins; /settings (Mongo) is the fallback; public
+    mainnet-beta RPC is the default. Read-only credential — Helius/QuickNode URLs
+    embed an API key but hold NO signing authority."""
+    env = (os.environ.get("SOLANA_RPC_URL", "") or "").strip()
+    if env:
+        return env
+    s = await get_raw_settings()
+    return (s.get("solana_rpc_url") or "").strip() or "https://api.mainnet-beta.solana.com"
 
 
 async def jupiter_key() -> str:

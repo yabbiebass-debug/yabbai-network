@@ -11,26 +11,42 @@ import httpx
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import FileResponse
 
-from network_db import db  # same shared handle the rest of the gateway uses
+from network_db import db, get_raw_settings  # same shared handle the rest of the gateway uses
 from revenue_system.defi_backend_patched.settlement import (
     record_settled_income, SettlementVerificationError)
 
 router = APIRouter(prefix="/api/store", tags=["store"])
 
 _CFG      = Path(__file__).with_name("products.json")
-ASSETS    = Path(os.environ.get("STORE_ASSETS_DIR", "/app/store_assets"))
-BASE_URL  = os.environ.get("PUBLIC_BASE_URL", "https://yabbai.network").rstrip("/")
 TTL_HOURS = int(os.environ.get("DOWNLOAD_TTL_HOURS", "72") or 72)
 SK        = os.environ.get("STRIPE_SECRET_KEY", "")
 WH        = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
 
-def _catalog():
+async def assets_dir() -> Path:
+    """STORE_ASSETS_DIR env wins; /settings (Mongo) fallback; default /app/store_assets."""
+    env = (os.environ.get("STORE_ASSETS_DIR", "") or "").strip()
+    if env:
+        return Path(env)
+    s = await get_raw_settings()
+    return Path((s.get("store_assets_dir") or "").strip() or "/app/store_assets")
+
+
+async def base_url() -> str:
+    """PUBLIC_BASE_URL env wins; /settings (Mongo) fallback; default https://yabbai.network."""
+    env = (os.environ.get("PUBLIC_BASE_URL", "") or "").strip()
+    if env:
+        return env.rstrip("/")
+    s = await get_raw_settings()
+    return ((s.get("public_base_url") or "").strip() or "https://yabbai.network").rstrip("/")
+
+
+def _catalog(assets: Path):
     cfg = json.loads(_CFG.read_text())
     out = {}
     for sku, p in cfg["skus"].items():
         priced = isinstance(p.get("price_cents"), int) and p["price_cents"] > 0
-        asset  = (ASSETS / p["file"]).is_file() if p.get("file") else False
+        asset  = (assets / p["file"]).is_file() if p.get("file") else False
         out[sku] = {**p, "listed": priced and asset,
                     "unlisted_reason": None if (priced and asset)
                     else ("price not set" if not priced else "asset file missing")}
@@ -39,7 +55,7 @@ def _catalog():
 
 @router.get("/health")
 async def health():
-    cur, cat = _catalog()
+    cur, cat = _catalog(await assets_dir())
     return {"ok": True, "app": "yabbai-store", "currency": cur,
             "stripe_key_configured": bool(SK), "webhook_secret_configured": bool(WH),
             "listed": [s for s, p in cat.items() if p["listed"]],
@@ -48,7 +64,7 @@ async def health():
 
 @router.get("/products")
 async def products():
-    cur, cat = _catalog()
+    cur, cat = _catalog(await assets_dir())
     return {"currency": cur,
             "products": [{"sku": s, "name": p["name"], "price_cents": p["price_cents"]}
                          for s, p in cat.items() if p["listed"]]}
@@ -59,14 +75,15 @@ async def checkout(body: dict):
     if not SK:
         raise HTTPException(503, "store not configured: STRIPE_SECRET_KEY unset")
     sku = (body or {}).get("sku", "")
-    cur, cat = _catalog()
+    cur, cat = _catalog(await assets_dir())
     p = cat.get(sku)
     if not p or not p["listed"]:
         raise HTTPException(404, f"sku '{sku}' not available")
+    base = await base_url()
     form = {
         "mode": "payment",
-        "success_url": f"{BASE_URL}/store/index.html?session_id={{CHECKOUT_SESSION_ID}}",
-        "cancel_url":  f"{BASE_URL}/store/index.html",
+        "success_url": f"{base}/store/index.html?session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url":  f"{base}/store/index.html",
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": cur,
         "line_items[0][price_data][unit_amount]": str(p["price_cents"]),
@@ -148,9 +165,10 @@ async def download(token: str):
         raise HTTPException(404, "unknown or expired link")
     if datetime.fromisoformat(e["expires_at"]) < datetime.now(timezone.utc):
         raise HTTPException(410, "link expired — contact support for a refresh")
-    _, cat = _catalog()
+    assets = await assets_dir()
+    _, cat = _catalog(assets)
     p = cat.get(e["sku"]) or {}
-    f = ASSETS / p.get("file", "")
+    f = assets / p.get("file", "")
     if not f.is_file():
         raise HTTPException(503, "asset not uploaded yet — contact support (no placeholder downloads)")
     return FileResponse(f, filename=f.name)

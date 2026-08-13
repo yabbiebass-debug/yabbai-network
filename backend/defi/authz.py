@@ -22,9 +22,10 @@ async def require_user(request: Request, authorization: Optional[str]):
 
 async def rpc_call(method: str, params: list):
     try:
+        url = await rpc_url()
         async with httpx.AsyncClient(timeout=RPC_TIMEOUT) as c:
-            r = await c.post(rpc_url(), json={"jsonrpc": "2.0", "id": 1,
-                                              "method": method, "params": params})
+            r = await c.post(url, json={"jsonrpc": "2.0", "id": 1,
+                                        "method": method, "params": params})
             r.raise_for_status()
             body = r.json()
     except HTTPException:

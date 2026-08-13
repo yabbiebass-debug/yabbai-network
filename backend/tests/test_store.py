@@ -47,7 +47,7 @@ def client(monkeypatch, tmp_path):
     booked.clear()
     monkeypatch.setattr(store, "db", _FakeDB())
     monkeypatch.setattr(store, "record_settled_income", _fake_record)
-    monkeypatch.setattr(store, "ASSETS", tmp_path)
+    monkeypatch.setenv("STORE_ASSETS_DIR", str(tmp_path))  # env wins in assets_dir()
     monkeypatch.setattr(store, "WH", "whsec_testsecret")
     app = FastAPI(); app.include_router(store.router)
     return TestClient(app), tmp_path

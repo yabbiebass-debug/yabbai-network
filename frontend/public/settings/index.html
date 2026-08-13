@@ -120,6 +120,37 @@
     <div class="hint" style="margin-top:12px">This key can only request quotes and relay <b>already-signed</b> transactions — it holds no signing authority. Live execution stays OFF until the operator flips <code>DEFI_LIVE_ENABLED</code>; the trade allowlist (<code>DEFI_ALLOWED_MINTS</code>) ships empty = nothing tradeable. Manage the DeFi surface at <a href="/defi/index.html" style="color:var(--purple)">/defi</a>.</div>
   </div>
 
+  <div class="eyebrow">Storefront &amp; Chain — RPC endpoint, base URL, product assets</div>
+  <div class="card" id="scCard">
+    <div class="chead"><h3><i>▸</i> Solana RPC endpoint</h3><span class="keyset" id="rpcKeyset">not set</span></div>
+    <label>SOLANA_RPC_URL — Helius/QuickNode URLs embed an API key, so this is masked and never shown again. Env always wins.</label>
+    <input type="password" id="solana_rpc_url" placeholder="https://mainnet.helius-rpc.com/?api-key=..." data-testid="solana-rpc-url">
+    <div class="row"><button class="btn sm green" id="rpcSave" data-testid="solana-rpc-save">Save RPC URL</button></div>
+    <div class="test" id="rpcResult"></div>
+    <div class="hint">Read-only credential — an RPC URL can query the chain but holds <b>no signing authority</b>. Default is the public mainnet-beta RPC (rate-limited on datacenter IPs); set a dedicated endpoint for reliable /defi data.</div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div class="twocol">
+        <div><label>Public base URL — Stripe checkout redirects</label><input id="public_base_url" placeholder="https://yabbai.network" data-testid="public-base-url"></div>
+        <div><label>Store assets dir — product ZIP files</label><input id="store_assets_dir" placeholder="/app/store_assets" data-testid="store-assets-dir"></div>
+      </div>
+      <div class="row"><button class="btn sm green" id="scSave" data-testid="storefront-save">Save storefront config</button></div>
+      <div class="test" id="scResult"></div>
+      <div class="hint">Plain config, not secrets — shown in full. Env <code>PUBLIC_BASE_URL</code> / <code>STORE_ASSETS_DIR</code> always win over values saved here.</div>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim2);margin-bottom:10px">Stripe — money-capable, environment only</div>
+      <div class="row" style="justify-content:space-between;margin-top:6px">
+        <span style="font-size:11px">STRIPE_SECRET_KEY</span>
+        <span class="keyset" id="stripeSkStatus" data-testid="stripe-sk-status">…</span>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:8px">
+        <span style="font-size:11px">STRIPE_WEBHOOK_SECRET</span>
+        <span class="keyset" id="stripeWhStatus" data-testid="stripe-wh-status">…</span>
+      </div>
+      <div class="hint" style="margin-top:10px">These can create charges, issue refunds and gate real income booking — they are <b>never stored here and have no save field</b>. Configure in the <b>Emergent secrets panel</b>; status above reflects the server environment only.</div>
+    </div>
+  </div>
+
   <div class="eyebrow">Supabase — live Postgres data layer</div>
   <div class="card" id="sbCard">
     <div class="chead"><h3><i>▸</i> Supabase</h3><span class="keyset" id="sbKeyset">not set</span></div>
@@ -214,6 +245,7 @@ function render(){
   renderSupabase();
   renderTavily();
   renderJupiter();
+  renderStorefront();
   loadRecovery();
   loadLearning();
 }
@@ -245,6 +277,46 @@ async function jupiterTest(){
     res.className='test err';
     res.textContent = `✗ Probe failed${d.error?': '+d.error:''} (HTTP ${d.http_status ?? '—'}).`;
   }
+}
+
+async function renderStorefront(){
+  const badge = $('rpcKeyset');
+  const ks = S.secrets_set && S.secrets_set.solana_rpc_url;
+  if(badge){ badge.textContent = ks ? 'configured' : 'not set'; badge.className = 'keyset '+(ks?'yes':''); }
+  const pb = $('public_base_url'); if(pb && !pb.value) pb.value = S.public_base_url || '';
+  const sd = $('store_assets_dir'); if(sd && !sd.value) sd.value = S.store_assets_dir || '';
+  const b1 = $('rpcSave'); if(b1) b1.onclick = saveRpcUrl;
+  const b2 = $('scSave'); if(b2) b2.onclick = saveStorefront;
+  loadStripeStatus();
+}
+
+async function saveRpcUrl(){
+  const res = $('rpcResult'); res.className='test'; res.textContent='Saving…';
+  const v = $('solana_rpc_url').value.trim();
+  if(!v){ res.className='test err'; res.textContent='Paste an RPC URL first.'; return; }
+  const put = await fetch(API+'/api/settings',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({solana_rpc_url:v})});
+  if(!put.ok){ res.className='test err'; res.textContent='✗ Could not save ('+put.status+').'; return; }
+  $('solana_rpc_url').value='';
+  const badge=$('rpcKeyset'); if(badge){ badge.textContent='configured'; badge.className='keyset yes'; }
+  res.className='test ok'; res.textContent='✓ Saved server-side. Env SOLANA_RPC_URL still wins if set.';
+}
+
+async function saveStorefront(){
+  const res = $('scResult'); res.className='test'; res.textContent='Saving…';
+  const payload = { public_base_url: $('public_base_url').value.trim(),
+                    store_assets_dir: $('store_assets_dir').value.trim() };
+  const put = await fetch(API+'/api/settings',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!put.ok){ res.className='test err'; res.textContent='✗ Could not save ('+put.status+').'; return; }
+  res.className='test ok'; res.textContent='✓ Saved. Env PUBLIC_BASE_URL / STORE_ASSETS_DIR still win if set.';
+}
+
+async function loadStripeStatus(){
+  const sk = $('stripeSkStatus'), wh = $('stripeWhStatus');
+  let h;
+  try{ h = await fetch(API+'/api/store/health').then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); }); }
+  catch(e){ if(sk){sk.textContent='unavailable'; sk.className='keyset';} if(wh){wh.textContent='unavailable'; wh.className='keyset';} return; }
+  if(sk){ sk.textContent = h.stripe_key_configured ? 'SET in environment' : 'UNSET'; sk.className = 'keyset '+(h.stripe_key_configured?'yes':''); }
+  if(wh){ wh.textContent = h.webhook_secret_configured ? 'SET in environment' : 'UNSET'; wh.className = 'keyset '+(h.webhook_secret_configured?'yes':''); }
 }
 
 async function renderTavily(){

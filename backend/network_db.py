@@ -22,7 +22,15 @@ SECRET_FIELDS = {
     "cerebras_api_key", "google_api_key", "openrouter_api_key",
     "supabase_service_key", "stripe_secret_key", "paypal_secret",
     "google_client_secret", "tavily_api_key", "jupiter_api_key",
+    "solana_rpc_url",  # Helius/QuickNode URLs embed an API key — mask like a secret
 }
+
+# Money-capable credentials — env-only, NEVER stored in Mongo, NEVER writable via
+# /api/settings. The Stripe secret key can create charges/refunds and read customer
+# data; the webhook secret is what stops forged purchases from writing fake income
+# rows into the ledger. Configure in the Emergent secrets panel only.
+ENV_ONLY_FIELDS = {"stripe_secret_key", "stripe_webhook_secret",
+                   "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"}
 
 DEFAULTS = {
     # Free-first ladder; paid emergent tier last, always. grok kept but dormant
@@ -61,6 +69,10 @@ DEFAULTS = {
     "goldscout_cache_ttl_hours": 24,
     "goldscout_default_depth": "basic",   # basic=1cr, advanced=2cr per Tavily call
     "tavily_monthly_limit": 100,
+    # Storefront & chain config — env always wins (see env_map below).
+    "public_base_url": "https://yabbai.network",
+    "store_assets_dir": "/app/store_assets",
+    "solana_rpc_url": "https://api.mainnet-beta.solana.com",
 }
 
 
@@ -91,6 +103,9 @@ async def get_raw_settings() -> dict:
         "openrouter_paid_model": os.environ.get("OPENROUTER_PAID_MODEL"),
         "tavily_api_key": os.environ.get("TAVILY_API_KEY"),
         "jupiter_api_key": os.environ.get("JUPITER_API_KEY"),
+        "solana_rpc_url": os.environ.get("SOLANA_RPC_URL"),
+        "public_base_url": os.environ.get("PUBLIC_BASE_URL"),
+        "store_assets_dir": os.environ.get("STORE_ASSETS_DIR"),
     }
     # Integer envs (interval etc.) — coerce safely; blank/invalid keeps merged value.
     int_env_map = {
@@ -140,6 +155,8 @@ async def get_raw_settings() -> dict:
 async def save_settings(payload: dict) -> None:
     payload.pop("_id", None)
     payload.pop("secrets_set", None)
+    for k in ENV_ONLY_FIELDS:      # Stripe money-capable creds: no write path, ever
+        payload.pop(k, None)
     # never let blank secret strings wipe an existing secret
     clean = {}
     for k, v in payload.items():

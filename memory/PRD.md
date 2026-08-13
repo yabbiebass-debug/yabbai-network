@@ -65,9 +65,15 @@ TRIGGER 5 orders/$100 · EARN $250/$1000/TVL$50M/APY20% · TREASURY $50/$200 AUD
 - 2026-08-13: PATCH SET v2 applied verbatim (user-authored): store service + page + tests +
   OPERATOR_RUNBOOK.md, LST receipt_mint + resolved shield verdicts in earn markets, N1 copy fix
   in revenue /health, hub Store chip. 24/24 tests. Preview verified; PROD REDEPLOY PENDING.
+- 2026-08-13: v2.1 confirmed (4 store tests authoritative). Storefront & Chain settings, 3-class split:
+  CLASS A public_base_url/store_assets_dir (plain, DEFAULTS+env_map, env wins) · CLASS B solana_rpc_url
+  (SECRET_FIELDS masked, rpc_url() async env→settings→default, authz awaits, store resolves per-request) ·
+  CLASS C Stripe SK/WH env-only — ENV_ONLY_FIELDS blocked in save_settings, read-only SET/UNSET rows on
+  /settings ("configure in Emergent secrets panel"). Tests 29/29 (20+4+5 new). Live-probed on preview.
 
 ## Testing
-- /app/backend/tests/test_full_update.py (20) + tests/test_store.py (4) → 24/24
+- /app/backend/tests/test_full_update.py (20) + tests/test_store.py (4) +
+  tests/test_storefront_chain_settings.py (5) → 29/29
 - Evidence log: /app/EVIDENCE.md (checkpoints 0–7 + final sweeps + patch set v2)
 - Auth-gated testing: seed session per /app/auth_testing.md (Mongo user_sessions with mfa_verified)
 

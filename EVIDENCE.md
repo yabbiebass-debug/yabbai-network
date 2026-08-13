@@ -235,3 +235,32 @@ Pre-apply diff check: patch base matched the live tree — all code-review fixes
 7. /store/index.html renders (screenshot): "Buy once. Own it." + honest empty-shelf state.
    Hub ⬢ Store chip present in served markup line 316 (renders post-auth; auth gate hides nav when signed out).
 ```
+
+---
+
+## PATCH — Storefront & Chain settings, 3-class split (2026-08-13)
+```
+Files touched (targeted): backend/network_db.py · backend/defi/config.py · backend/defi/authz.py ·
+backend/store/__init__.py · backend/tests/test_store.py (fixture: setattr ASSETS → setenv STORE_ASSETS_DIR) ·
+backend/tests/test_storefront_chain_settings.py (NEW, 5 tests) · frontend/public/settings/index.html
+
+CLASS A (plain): public_base_url + store_assets_dir → DEFAULTS + env_map (env wins) + full-text inputs on /settings.
+CLASS B (credential, no signing authority): solana_rpc_url → SECRET_FIELDS (masked, secrets_set boolean only),
+  DEFAULTS + env_map. rpc_url() now async: env → settings → mainnet-beta default; authz.rpc_call awaits it
+  (fail-closed 503 unchanged). store assets_dir()/base_url() resolve per-request, same precedence.
+CLASS C (money-capable): STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET — ENV_ONLY_FIELDS stripped in save_settings
+  (both casings), NO input fields; /settings shows read-only SET/UNSET rows from /api/store/health
+  (os.environ-derived) + "configure in the Emergent secrets panel". SK/WH still read from env exactly as before.
+
+1. py_compile network_db.py defi/config.py defi/authz.py store/__init__.py tests/test_store.py
+   tests/test_storefront_chain_settings.py → ALL 6 OK
+2. pytest test_full_update.py + test_store.py + test_storefront_chain_settings.py → 29 passed (20+4+5)
+3. Live preview probes: GET /api/settings (authed) → solana_rpc_url plaintext ABSENT,
+   secrets_set.solana_rpc_url=true, stripe keys absent from doc.
+   PUT /api/settings with STRIPE_SECRET_KEY/stripe_webhook_secret → Mongo doc after write:
+   stripe fields ALL null (blocked), public_base_url stored. /api/store/health + /api/defi/health OK.
+4. /settings screenshot: Storefront & Chain card renders — masked RPC input, plain base-url/assets-dir
+   inputs prefilled with defaults, Stripe rows UNSET (correct dark state).
+NOTE (honest): rpcKeyset badge reads "configured" even at default because solana_rpc_url sits in DEFAULTS
+   per instruction — secrets_set booleans can't distinguish default from operator-set.
+```
